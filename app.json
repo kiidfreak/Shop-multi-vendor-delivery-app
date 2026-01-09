@@ -1,7 +1,7 @@
 {
     "expo": {
-        "name": "Shopkeeper Sales Tracker",
-        "slug": "shopkeeper-sales-tracker",
+        "name": "Eddu",
+        "slug": "eddu",
         "version": "1.0.0",
         "orientation": "portrait",
         "icon": "./assets/images/icon.png",
@@ -15,14 +15,14 @@
         },
         "ios": {
             "supportsTablet": false,
-            "bundleIdentifier": "app.rork.shopkeeper-sales-tracker"
+            "bundleIdentifier": "app.eddu.deliveries"
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/images/adaptive-icon.png",
                 "backgroundColor": "#F57C00"
             },
-            "package": "app.rork.shopkeeper_sales_tracker",
+            "package": "app.eddu.deliveries",
             "permissions": [
                 "android.permission.VIBRATE"
             ]

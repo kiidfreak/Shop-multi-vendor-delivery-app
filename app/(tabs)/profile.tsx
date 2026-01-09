@@ -6,11 +6,12 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput,
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
-import Colors from "@/constants/colors";
+
 import type { Shop, Seller, InventoryItem } from "@/types";
 
 export default function ProfileScreen() {
-    const { shops, sellers, inventory, settings, saveShops, saveSellers, saveInventory, saveSettings } = useApp();
+    const { shops, sellers, inventory, settings, saveShops, saveSellers, saveInventory, saveSettings, colors: Colors } = useApp();
+    const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const { action } = useLocalSearchParams();
 
     const [showShopModal, setShowShopModal] = useState(false);
@@ -499,7 +500,7 @@ export default function ProfileScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,

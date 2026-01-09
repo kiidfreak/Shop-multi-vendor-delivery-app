@@ -4,10 +4,11 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Colors from "@/constants/colors";
+import { useApp } from "@/contexts/AppContext";
 import FloatingActionButton from "@/components/FloatingActionButton";
 
 export default function TabLayout() {
+    const { colors: Colors } = useApp();
     const insets = useSafeAreaInsets();
     const pathname = usePathname();
 

@@ -1,19 +1,20 @@
 import { Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Store, Phone, MapPin, CheckCircle, DollarSign, Search, Filter } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, Alert, Pressable, TextInput, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { useApp } from "@/contexts/AppContext";
-import Colors from "@/constants/colors";
+
 import type { Shop, Delivery } from "@/types";
 
 type PaymentFilter = 'all' | 'unpaid' | 'partial' | 'paid';
 
 export default function ShopsScreen() {
-    const { getActiveShops, getUnpaidDeliveriesByShop, recordPayment, settings, shops: allShops } = useApp();
+    const { getActiveShops, getUnpaidDeliveriesByShop, recordPayment, settings, shops: allShops, colors: Colors } = useApp();
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
     const shops = getActiveShops();
     const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -61,6 +62,34 @@ export default function ShopsScreen() {
             return remainingB - remainingA;
         });
     }, [shops, searchQuery, paymentFilter, getUnpaidDeliveriesByShop]);
+
+    const shopCounts = useMemo(() => {
+        let unpaidCount = 0;
+        let partialCount = 0;
+        let paidCount = 0;
+
+        shops.forEach((shop: Shop) => {
+            const unpaid = getUnpaidDeliveriesByShop(shop.id);
+            const totalAmount = unpaid.reduce((sum, d) => sum + d.totalAmount, 0);
+            const totalPaid = unpaid.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+            const remaining = totalAmount - totalPaid;
+
+            if (unpaid.length === 0) {
+                paidCount++;
+            } else if (totalPaid > 0 && remaining > 0) {
+                partialCount++;
+            } else {
+                unpaidCount++;
+            }
+        });
+
+        return {
+            all: shops.length,
+            unpaid: unpaidCount,
+            partial: partialCount,
+            paid: paidCount,
+        };
+    }, [shops, getUnpaidDeliveriesByShop]);
 
     // Close modal if all payments are cleared for the selected shop
     React.useEffect(() => {
@@ -180,7 +209,7 @@ export default function ShopsScreen() {
                                     paymentFilter === filter && styles.filterChipTextActive,
                                 ]}
                             >
-                                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                {filter.charAt(0).toUpperCase() + filter.slice(1)} <Text style={{ fontSize: 10, opacity: 0.8 }}>({shopCounts[filter]})</Text>
                             </Text>
                         </Pressable>
                     ))}
@@ -398,7 +427,7 @@ export default function ShopsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,

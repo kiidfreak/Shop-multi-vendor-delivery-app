@@ -5,11 +5,12 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View, ActivityIndicator, Pressable, useWindowDimensions, Modal, TouchableWithoutFeedback, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
-import Colors from "@/constants/colors";
+
 import type { SellerAnalytics } from "@/types";
 
 export default function DashboardScreen() {
-    const { getTodaySummary, getSellerAnalytics, inventory, deliveries, isLoaded, settings } = useApp();
+    const { getTodaySummary, getSellerAnalytics, inventory, deliveries, isLoaded, settings, colors: Colors } = useApp();
+    const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const { width: windowWidth } = useWindowDimensions();
     const [activeSlide, setActiveSlide] = React.useState(0);
     const [showMenu, setShowMenu] = useState(false);
@@ -273,7 +274,7 @@ export default function DashboardScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,

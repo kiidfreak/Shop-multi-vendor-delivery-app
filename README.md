@@ -73,7 +73,9 @@ Eddu v1 is designed to work flawlessly in any environment. All data is saved dir
 - Real-time sync across devices
 - Backup and restore functionality
 
+
 ### Enhanced Features
+- **STK Push Integration**: Automatic payment requests to shops' unpaid phone numbers for easier collection tracking
 - PDF/Export reports
 - Monthly/Weekly analytics summaries
 - Push notifications for low stock alerts

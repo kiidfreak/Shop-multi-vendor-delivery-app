@@ -5,11 +5,12 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
-import Colors from "@/constants/colors";
+
 import type { InventoryItem } from "@/types";
 
 export default function InventoryScreen() {
-    const { inventory, saveInventory } = useApp();
+    const { inventory, saveInventory, colors: Colors } = useApp();
+    const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [adjustment, setAdjustment] = useState("");
@@ -208,7 +209,7 @@ export default function InventoryScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,

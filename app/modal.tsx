@@ -18,13 +18,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
-import Colors from "@/constants/colors";
+
 import type { DeliveryItem, Shop, Seller } from "@/types";
 import Toast from "react-native-toast-message";
 
 export default function DeliveryFormModal() {
     const insets = useSafeAreaInsets();
-    const { shops, inventory, addDelivery, sellers, saveShops } = useApp();
+    const { shops, inventory, addDelivery, sellers, saveShops, colors: Colors } = useApp();
+    const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const [selectedShop, setSelectedShop] = useState("");
     const [selectedSeller, setSelectedSeller] = useState("");
     const [items, setItems] = useState<DeliveryItem[]>([]);
@@ -408,7 +409,7 @@ export default function DeliveryFormModal() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: "rgba(0, 0, 0, 0.4)",

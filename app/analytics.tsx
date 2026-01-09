@@ -5,10 +5,11 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput, Pressa
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useApp } from "@/contexts/AppContext";
-import Colors from "@/constants/colors";
+
 
 export default function AnalyticsScreen() {
-    const { getSellerAnalytics, shops, deliveries, sellers } = useApp();
+    const { getSellerAnalytics, shops, deliveries, sellers, colors: Colors } = useApp();
+    const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDate, setSelectedDate] = useState(new Date());
     const analytics = getSellerAnalytics();
@@ -240,7 +241,7 @@ export default function AnalyticsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.background,

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import type { Delivery, DailySummary, InventoryItem, Shop, Seller, AppSettings, SellerAnalytics } from "@/types";
+import { LightColors, DarkColors } from "@/constants/colors";
 
 const STORAGE_KEYS = {
     SHOPS: "shops",
@@ -237,6 +238,8 @@ export const [AppProvider, useApp] = createContextHook(() => {
         return shops.filter((shop) => shop.isActive);
     }, [shops, settings.hideShopsAfterPaid, getUnpaidDeliveriesByShop]);
 
+    const colors = settings.darkMode ? DarkColors : LightColors;
+
     return useMemo(() => ({
         shops,
         inventory,
@@ -244,6 +247,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
         sellers,
         settings,
         isLoaded,
+        colors,
         addDelivery,
         recordPayment,
         getTodaySummary,
@@ -261,6 +265,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
         sellers,
         settings,
         isLoaded,
+        colors,
         addDelivery,
         recordPayment,
         getTodaySummary,

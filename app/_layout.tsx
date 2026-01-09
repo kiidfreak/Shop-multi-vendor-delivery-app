@@ -5,11 +5,10 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AppProvider } from "@/contexts/AppContext";
+import { AppProvider, useApp } from "@/contexts/AppContext";
 import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
 import { View, StyleSheet, Image, Animated, Text, Dimensions } from "react-native";
-import Colors from "@/constants/colors";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -17,54 +16,66 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function CustomSplashScreen({ onFinish }: { onFinish: () => void }) {
+    const { isLoaded } = useApp();
     const fadeAnim = React.useRef(new Animated.Value(1)).current;
     const scaleAnim = React.useRef(new Animated.Value(0.9)).current;
-    const textTranslateY = React.useRef(new Animated.Value(20)).current;
+    const textTranslateY = React.useRef(new Animated.Value(0)).current;
     const textOpacity = React.useRef(new Animated.Value(0)).current;
 
     React.useEffect(() => {
-        // Hide native splash immediately when this component mounts
         const hideNativeSplash = async () => {
             await SplashScreen.hideAsync();
         };
         hideNativeSplash();
 
-        Animated.sequence([
-            // Animate Icon and Text
-            Animated.parallel([
-                Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    friction: 7,
-                    tension: 40,
-                    useNativeDriver: true,
-                }),
-                Animated.sequence([
-                    Animated.delay(100),
-                    Animated.parallel([
-                        Animated.spring(textTranslateY, {
-                            toValue: 0,
-                            friction: 6,
-                            tension: 50,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(textOpacity, {
-                            toValue: 1,
-                            duration: 400,
-                            useNativeDriver: true,
-                        }),
-                    ]),
-                ]),
-            ]),
-            // Wait a bit to show off the logo
-            Animated.delay(1200),
-            // Fade out
-            Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 400,
+        // Initial entrance animation
+        Animated.parallel([
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                friction: 7,
+                tension: 40,
                 useNativeDriver: true,
             }),
-        ]).start(() => onFinish());
+            Animated.timing(textOpacity, {
+                toValue: 1,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+        ]).start();
+
+        // Bouncing text animation loop
+        const bounceAnimation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(textTranslateY, {
+                    toValue: -10,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(textTranslateY, {
+                    toValue: 0,
+                    duration: 600,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        bounceAnimation.start();
+
+        return () => bounceAnimation.stop();
     }, []);
+
+    // Watch for isLoaded to trigger exit
+    React.useEffect(() => {
+        if (isLoaded) {
+            // Smooth exit after a minimum short delay to show the brand
+            setTimeout(() => {
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 500,
+                    useNativeDriver: true,
+                }).start(() => onFinish());
+            }, 1000);
+        }
+    }, [isLoaded]);
 
     return (
         <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
@@ -86,9 +97,10 @@ function CustomSplashScreen({ onFinish }: { onFinish: () => void }) {
 }
 
 function RootLayoutNav() {
+    const { settings } = useApp();
     return (
         <View style={styles.root}>
-            <StatusBar style="dark" />
+            <StatusBar style={settings.darkMode ? "light" : "dark"} />
             <Stack screenOptions={{ headerBackTitle: "Back" }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
@@ -112,7 +124,7 @@ const styles = StyleSheet.create({
     },
     splashContainer: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "#F57C00", // Vibrant Orange
+        backgroundColor: "#FFFFFF", // White to blend with icon background
         alignItems: "center",
         justifyContent: "center",
         zIndex: 99999,
@@ -128,7 +140,7 @@ const styles = StyleSheet.create({
     splashText: {
         fontSize: 48,
         fontWeight: "800",
-        color: "#FFFFFF",
+        color: "#F57C00",
         marginTop: 20,
         letterSpacing: 4, // Make it look premium/fancy
         fontFamily: "System", // Or custom font if available

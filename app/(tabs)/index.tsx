@@ -136,6 +136,7 @@ export default function DashboardScreen() {
             <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <View style={styles.statsContainer}>
                     <ScrollView

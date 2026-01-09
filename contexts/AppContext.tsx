@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     defaultLowStockThreshold: 10,
     userName: "Edwin",
     businessName: "Edwin Business",
+    darkMode: false,
 };
 
 export const [AppProvider, useApp] = createContextHook(() => {

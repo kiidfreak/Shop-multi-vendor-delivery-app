@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Store, Phone, MapPin, CheckCircle, DollarSign, Search } from "lucide-react-native";
+import { Store, Phone, MapPin, CheckCircle, DollarSign, Search, Filter } from "lucide-react-native";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, Alert, Pressable, TextInput, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,25 +10,57 @@ import { useApp } from "@/contexts/AppContext";
 import Colors from "@/constants/colors";
 import type { Shop, Delivery } from "@/types";
 
+type PaymentFilter = 'all' | 'unpaid' | 'partial' | 'paid';
+
 export default function ShopsScreen() {
     const { getActiveShops, getUnpaidDeliveriesByShop, recordPayment, settings, shops: allShops } = useApp();
     const shops = getActiveShops();
     const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
     const [paymentAmount, setPaymentAmount] = useState("");
     const [payingDeliveryId, setPayingDeliveryId] = useState<string | null>(null);
     const [showConfetti, setShowConfetti] = useState(false);
     const confettiRef = React.useRef<any>(null);
 
     const filteredShops = React.useMemo(() => {
-        return shops.filter(
+        // First filter by search
+        let result = shops.filter(
             (shop: Shop) =>
                 shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 shop.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 shop.owner.toLowerCase().includes(searchQuery.toLowerCase())
         );
-    }, [shops, searchQuery]);
+
+        // Calculate payment status for each shop and apply filter
+        result = result.filter((shop: Shop) => {
+            const unpaid = getUnpaidDeliveriesByShop(shop.id);
+            const totalAmount = unpaid.reduce((sum, d) => sum + d.totalAmount, 0);
+            const totalPaid = unpaid.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+            const remaining = totalAmount - totalPaid;
+            const isPartial = totalPaid > 0 && remaining > 0;
+            const isPaid = unpaid.length === 0;
+            const isUnpaid = remaining > 0 && totalPaid === 0;
+
+            if (paymentFilter === 'all') return true;
+            if (paymentFilter === 'unpaid') return isUnpaid;
+            if (paymentFilter === 'partial') return isPartial;
+            if (paymentFilter === 'paid') return isPaid;
+            return true;
+        });
+
+        // Sort: unpaid first, then partial, then paid
+        return result.sort((a: Shop, b: Shop) => {
+            const unpaidA = getUnpaidDeliveriesByShop(a.id);
+            const unpaidB = getUnpaidDeliveriesByShop(b.id);
+            const remainingA = unpaidA.reduce((sum, d) => sum + d.totalAmount - (d.paidAmount || 0), 0);
+            const remainingB = unpaidB.reduce((sum, d) => sum + d.totalAmount - (d.paidAmount || 0), 0);
+
+            // Sort by remaining balance (highest first)
+            return remainingB - remainingA;
+        });
+    }, [shops, searchQuery, paymentFilter, getUnpaidDeliveriesByShop]);
 
     // Close modal if all payments are cleared for the selected shop
     React.useEffect(() => {
@@ -127,6 +159,32 @@ export default function ShopsScreen() {
                         placeholderTextColor={Colors.textLight}
                     />
                 </View>
+
+                {/* Filter Chips */}
+                <View style={styles.filterContainer}>
+                    {(['all', 'unpaid', 'partial', 'paid'] as PaymentFilter[]).map((filter) => (
+                        <Pressable
+                            key={filter}
+                            style={[
+                                styles.filterChip,
+                                paymentFilter === filter && styles.filterChipActive,
+                            ]}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setPaymentFilter(filter);
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.filterChipText,
+                                    paymentFilter === filter && styles.filterChipTextActive,
+                                ]}
+                            >
+                                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
             </View>
 
             {/* Scrollable Shop List */}
@@ -134,6 +192,7 @@ export default function ShopsScreen() {
                 style={styles.scrollView}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <View style={styles.shopsContainer}>
                     {filteredShops.length > 0 ? (
@@ -726,5 +785,30 @@ const styles = StyleSheet.create({
         color: Colors.card,
         fontWeight: "600" as const,
         opacity: 0.9,
+    },
+    filterContainer: {
+        flexDirection: "row",
+        gap: 8,
+        marginTop: 12,
+    },
+    filterChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: Colors.background,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    filterChipActive: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+    },
+    filterChipText: {
+        fontSize: 12,
+        fontWeight: "600" as const,
+        color: Colors.textLight,
+    },
+    filterChipTextActive: {
+        color: Colors.card,
     },
 });

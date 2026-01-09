@@ -48,6 +48,7 @@ export interface AppSettings {
     userName: string;
     businessName: string;
     profileImage?: string;
+    darkMode: boolean;
 }
 
 export interface DailySummary {

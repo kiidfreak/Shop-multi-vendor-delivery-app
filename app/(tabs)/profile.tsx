@@ -1,6 +1,6 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3 } from "lucide-react-native";
+import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3, Moon } from "lucide-react-native";
 import React, { useState, useEffect } from "react";
 import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable, Switch, Image } from "react-native";
 import * as ImagePicker from 'expo-image-picker';
@@ -224,31 +224,38 @@ export default function ProfileScreen() {
                     headerShown: false,
                 }}
             />
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <TouchableOpacity style={styles.profileIconContainer} onPress={pickImage}>
-                        {settings.profileImage ? (
-                            <Image source={{ uri: settings.profileImage }} style={styles.profileImage} />
-                        ) : (
-                            <User size={40} color={Colors.primary} />
-                        )}
-                        <View style={styles.editBadge}>
-                            <Edit2 size={12} color={Colors.card} />
-                        </View>
-                    </TouchableOpacity>
-                    <Text style={styles.title}>{settings.businessName}</Text>
-                    <TouchableOpacity
-                        style={styles.editProfileButton}
-                        onPress={() => {
-                            setTempUserName(settings.userName);
-                            setTempBusinessName(settings.businessName);
-                            setShowProfileModal(true);
-                        }}
-                    >
-                        <Text style={styles.editProfileText}>Edit Profile</Text>
-                    </TouchableOpacity>
-                </View>
 
+            {/* Sticky Header - Profile Section */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.profileIconContainer} onPress={pickImage}>
+                    {settings.profileImage ? (
+                        <Image source={{ uri: settings.profileImage }} style={styles.profileImage} />
+                    ) : (
+                        <User size={40} color={Colors.primary} />
+                    )}
+                    <View style={styles.editBadge}>
+                        <Edit2 size={12} color={Colors.card} />
+                    </View>
+                </TouchableOpacity>
+                <Text style={styles.title}>{settings.businessName}</Text>
+                <TouchableOpacity
+                    style={styles.editProfileButton}
+                    onPress={() => {
+                        setTempUserName(settings.userName);
+                        setTempBusinessName(settings.businessName);
+                        setShowProfileModal(true);
+                    }}
+                >
+                    <Text style={styles.editProfileText}>Edit Profile</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Content */}
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+            >
                 <Pressable
                     style={({ pressed }) => [styles.analyticsCard, pressed && styles.cardPressed]}
                     onPress={() => {
@@ -373,6 +380,22 @@ export default function ProfileScreen() {
                         <Switch
                             value={settings.hideShopsAfterPaid}
                             onValueChange={toggleHideShopsAfterPaid}
+                            trackColor={{ false: Colors.border, true: Colors.primary }}
+                            thumbColor={Colors.card}
+                        />
+                    </View>
+
+                    <View style={styles.settingItem}>
+                        <Moon size={20} color={Colors.primary} />
+                        <View style={styles.settingContent}>
+                            <Text style={styles.settingTitle}>Dark Mode</Text>
+                            <Text style={styles.settingSubtitle}>Switch to dark theme</Text>
+                        </View>
+                        <Switch
+                            value={settings.darkMode}
+                            onValueChange={async (value) => {
+                                await saveSettings({ ...settings, darkMode: value });
+                            }}
                             trackColor={{ false: Colors.border, true: Colors.primary }}
                             thumbColor={Colors.card}
                         />

@@ -88,6 +88,7 @@ export default function InventoryScreen() {
             <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <View style={styles.inventoryContainer}>
                     {inventory.map((item) => {

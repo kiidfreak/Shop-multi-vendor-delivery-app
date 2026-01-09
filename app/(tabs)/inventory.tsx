@@ -57,7 +57,7 @@ export default function InventoryScreen() {
         <SafeAreaView style={styles.container} edges={["top"]}>
             <Stack.Screen
                 options={{
-                    headerShown: true,
+                    headerShown: false,
                     title: "Inventory",
                     headerStyle: { backgroundColor: Colors.background },
                     headerTintColor: Colors.text,

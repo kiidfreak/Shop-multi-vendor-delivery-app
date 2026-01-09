@@ -24,7 +24,7 @@ import Toast from "react-native-toast-message";
 
 export default function DeliveryFormModal() {
     const insets = useSafeAreaInsets();
-    const { shops, inventory, addDelivery, sellers } = useApp();
+    const { shops, inventory, addDelivery, sellers, saveShops } = useApp();
     const [selectedShop, setSelectedShop] = useState("");
     const [selectedSeller, setSelectedSeller] = useState("");
     const [items, setItems] = useState<DeliveryItem[]>([]);
@@ -82,6 +82,31 @@ export default function DeliveryFormModal() {
     const activeSellers = React.useMemo(() => {
         return sellers.filter((s: Seller) => s.isActive);
     }, [sellers]);
+
+    const handleQuickAddShop = async () => {
+        if (!searchQuery.trim()) return;
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const newShop: Shop = {
+            id: Date.now().toString(),
+            name: searchQuery.trim(),
+            owner: "New Client",
+            phone: "",
+            location: "Not set",
+            isActive: true,
+        };
+
+        await saveShops([...shops, newShop]);
+        setSelectedShop(newShop.id);
+        setSearchQuery("");
+
+        Toast.show({
+            type: "success",
+            text1: "Shop Added! 🏪",
+            text2: `${newShop.name} is ready for deliveries`,
+            visibilityTime: 2000,
+        });
+    };
 
     const getTotalAmount = () => {
         return items.reduce((sum, item) => sum + item.quantity * item.price, 0);
@@ -233,7 +258,19 @@ export default function DeliveryFormModal() {
                                         )}
                                     </Pressable>
                                 ))}
-                                {filteredShops.length === 0 && (
+                                {filteredShops.length === 0 && searchQuery.trim() && (
+                                    <Pressable
+                                        style={({ pressed }) => [
+                                            styles.addShopChip,
+                                            pressed && styles.shopChipPressed,
+                                        ]}
+                                        onPress={handleQuickAddShop}
+                                    >
+                                        <Plus size={16} color={Colors.primary} />
+                                        <Text style={styles.addShopText}>Add "{searchQuery.trim()}"</Text>
+                                    </Pressable>
+                                )}
+                                {filteredShops.length === 0 && !searchQuery.trim() && (
                                     <Text style={styles.emptyText}>No shops found</Text>
                                 )}
                             </View>
@@ -663,5 +700,22 @@ const styles = StyleSheet.create({
         fontWeight: "700" as const,
         color: Colors.text,
         padding: 0,
+    },
+    addShopChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 24,
+        backgroundColor: Colors.secondary,
+        borderWidth: 2,
+        borderColor: Colors.primary,
+        borderStyle: "dashed",
+        gap: 8,
+    },
+    addShopText: {
+        fontSize: 14,
+        color: Colors.primary,
+        fontWeight: "700" as const,
     },
 });

@@ -221,10 +221,7 @@ export default function ProfileScreen() {
         <SafeAreaView style={styles.container} edges={["top"]}>
             <Stack.Screen
                 options={{
-                    headerShown: true,
-                    title: "Profile & Settings",
-                    headerStyle: { backgroundColor: Colors.background },
-                    headerTintColor: Colors.text,
+                    headerShown: false,
                 }}
             />
             <ScrollView style={styles.scrollView}>

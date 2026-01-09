@@ -52,7 +52,12 @@ export default function ShopsScreen() {
             setShowPaymentModal(true);
         } else {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert("No Pending Payments", `${shop.name} has no pending payments.`);
+            Toast.show({
+                type: "success",
+                text1: "All Cleared! ✅",
+                text2: `${shop.name} has no pending payments`,
+                visibilityTime: 2500,
+            });
         }
     };
 
@@ -99,10 +104,7 @@ export default function ShopsScreen() {
         <SafeAreaView style={styles.container} edges={["top"]}>
             <Stack.Screen
                 options={{
-                    headerShown: true,
-                    title: "Shops",
-                    headerStyle: { backgroundColor: Colors.background },
-                    headerTintColor: Colors.text,
+                    headerShown: false,
                 }}
             />
             <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">

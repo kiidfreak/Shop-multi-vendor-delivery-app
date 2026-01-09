@@ -339,7 +339,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        paddingTop: 10,
         backgroundColor: Colors.card,
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,

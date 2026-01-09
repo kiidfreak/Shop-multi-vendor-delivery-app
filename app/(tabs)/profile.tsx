@@ -486,7 +486,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        paddingTop: 10,
         alignItems: "center",
         backgroundColor: Colors.background,
         marginBottom: 10,

@@ -33,8 +33,8 @@ const DEFAULT_SELLERS: Seller[] = [
 const DEFAULT_SETTINGS: AppSettings = {
     hideShopsAfterPaid: false,
     defaultLowStockThreshold: 10,
-    userName: "Edwin",
-    businessName: "Edwin Business",
+    userName: "Name",
+    businessName: "Business Name",
     darkMode: false,
 };
 
@@ -79,28 +79,33 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
 
 
-    const saveInventory = async (newInventory: InventoryItem[]) => {
+    const saveInventory = useCallback(async (newInventory: InventoryItem[]) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(newInventory));
             setInventory(newInventory);
+            await AsyncStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(newInventory));
         } catch (error) {
             console.error("Error saving inventory:", error);
         }
-    };
+    }, []);
 
-    const saveDeliveries = async (newDeliveries: Delivery[]) => {
+    const saveDeliveries = useCallback(async (newDeliveries: Delivery[]) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEYS.DELIVERIES, JSON.stringify(newDeliveries));
             setDeliveries(newDeliveries);
+            await AsyncStorage.setItem(STORAGE_KEYS.DELIVERIES, JSON.stringify(newDeliveries));
         } catch (error) {
             console.error("Error saving deliveries:", error);
         }
-    };
+    }, []);
 
-    const addDelivery = async (delivery: Delivery) => {
+    const addDelivery = useCallback(async (delivery: Delivery) => {
+        // Optimistic update for UI speed
         const newDeliveries = [...deliveries, delivery];
-        await saveDeliveries(newDeliveries);
+        setDeliveries(newDeliveries);
 
+        // Persist to storage in background
+        AsyncStorage.setItem(STORAGE_KEYS.DELIVERIES, JSON.stringify(newDeliveries));
+
+        // Update inventory
         const updatedInventory = inventory.map((item) => {
             const deliveryItem = delivery.items.find((di) => di.inventoryItemId === item.id);
             if (deliveryItem) {
@@ -111,10 +116,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
             }
             return item;
         });
-        await saveInventory(updatedInventory);
-    };
 
-    const recordPayment = async (deliveryId: string, amount: number) => {
+        setInventory(updatedInventory);
+        AsyncStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(updatedInventory));
+    }, [deliveries, inventory]);
+
+    const recordPayment = useCallback(async (deliveryId: string, amount: number) => {
         const updatedDeliveries = deliveries.map((d) => {
             if (d.id === deliveryId) {
                 const newPaidAmount = Math.min(d.totalAmount, (d.paidAmount || 0) + amount);
@@ -127,10 +134,12 @@ export const [AppProvider, useApp] = createContextHook(() => {
             }
             return d;
         });
-        await saveDeliveries(updatedDeliveries);
-    };
 
-    const getTodaySummary = (): DailySummary => {
+        setDeliveries(updatedDeliveries);
+        AsyncStorage.setItem(STORAGE_KEYS.DELIVERIES, JSON.stringify(updatedDeliveries));
+    }, [deliveries]);
+
+    const getTodaySummary = useCallback((): DailySummary => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -151,38 +160,40 @@ export const [AppProvider, useApp] = createContextHook(() => {
             totalUnpaid,
             deliveryCount: todayDeliveries.length,
         };
-    };
+    }, [deliveries]);
 
     const getUnpaidDeliveriesByShop = useCallback((shopId: string): Delivery[] => {
         return deliveries.filter((d) => d.shopId === shopId && !d.isPaid);
     }, [deliveries]);
 
-    const saveShops = async (newShops: Shop[]) => {
+    const saveShops = useCallback(async (newShops: Shop[]) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEYS.SHOPS, JSON.stringify(newShops));
             setShops(newShops);
+            await AsyncStorage.setItem(STORAGE_KEYS.SHOPS, JSON.stringify(newShops));
         } catch (error) {
             console.error("Error saving shops:", error);
         }
-    };
+    }, []);
 
-    const saveSellers = async (newSellers: Seller[]) => {
+    const saveSellers = useCallback(async (newSellers: Seller[]) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEYS.SELLERS, JSON.stringify(newSellers));
             setSellers(newSellers);
+            await AsyncStorage.setItem(STORAGE_KEYS.SELLERS, JSON.stringify(newSellers));
         } catch (error) {
             console.error("Error saving sellers:", error);
         }
-    };
+    }, []);
 
-    const saveSettings = async (newSettings: AppSettings) => {
+    const saveSettings = useCallback(async (newSettings: AppSettings) => {
         try {
-            await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings));
+            // Optimistically update state first for immediate UI feedback
             setSettings(newSettings);
+            // Then persist to storage
+            await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(newSettings));
         } catch (error) {
             console.error("Error saving settings:", error);
         }
-    };
+    }, []);
 
     const getSellerAnalytics = useCallback((): SellerAnalytics[] => {
         const now = new Date();

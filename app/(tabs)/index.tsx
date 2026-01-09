@@ -220,12 +220,18 @@ export default function DashboardScreen() {
                             <Text style={styles.emptyStateText}>All payments collected!</Text>
                         </View>
                     ) : (
-                        <View style={styles.card}>
+                        <Pressable
+                            style={({ pressed }) => [styles.card, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                router.push("/shops");
+                            }}
+                        >
                             <Text style={styles.totalUnpaidText}>
                                 Total Pending: <Text style={styles.totalUnpaidAmount}>KES {totalUnpaid.toLocaleString()}</Text>
                             </Text>
-                            <Text style={styles.helpText}>Go to Shops tab to mark payments</Text>
-                        </View>
+                            <Text style={styles.helpText}>Tap to go to Shops and mark payments</Text>
+                        </Pressable>
                     )}
                 </View>
 

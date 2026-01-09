@@ -38,6 +38,11 @@ export default function AnalyticsScreen() {
         return sellers.find((s) => s.id === sellerId)?.name || "Unknown Seller";
     };
 
+    const formatTime = (isoString: string) => {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    };
+
     const getSellerDeliveries = (sellerId: string) => {
         return dateDeliveries.filter((d) => {
             const shopName = getShopName(d.shopId).toLowerCase();
@@ -210,6 +215,7 @@ export default function AnalyticsScreen() {
                                         <Text style={styles.deliveriesTitle}>Deliveries</Text>
                                         {sellerDeliveries.map((delivery) => (
                                             <View key={delivery.id} style={styles.deliveryItem}>
+                                                <Text style={styles.deliveryTime}>{formatTime(delivery.deliveryDate)}</Text>
                                                 <Store size={14} color={Colors.textLight} />
                                                 <Text style={styles.deliveryShop}>{getShopName(delivery.shopId)}</Text>
                                                 <Text style={styles.deliveryAmount}>KES {delivery.totalAmount}</Text>
@@ -501,5 +507,11 @@ const styles = StyleSheet.create({
         color: Colors.textLight,
         marginTop: 12,
         textAlign: "center",
+    },
+    deliveryTime: {
+        fontSize: 11,
+        color: Colors.textLight,
+        fontWeight: "500" as const,
+        minWidth: 60,
     },
 });

@@ -5,23 +5,25 @@ import { Plus, X, Minus, Check } from "lucide-react-native";
 import React, { useState, useRef } from "react";
 import ConfettiCannon from "react-native-confetti-cannon";
 import {
-    Modal,
     Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
     ScrollView,
     TextInput,
     Alert,
     Pressable,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
 import Colors from "@/constants/colors";
 import type { DeliveryItem, Shop, Seller } from "@/types";
 import Toast from "react-native-toast-message";
 
 export default function DeliveryFormModal() {
+    const insets = useSafeAreaInsets();
     const { shops, inventory, addDelivery, sellers } = useApp();
     const [selectedShop, setSelectedShop] = useState("");
     const [selectedSeller, setSelectedSeller] = useState("");
@@ -139,8 +141,11 @@ export default function DeliveryFormModal() {
 
     return (
         <>
+            <TouchableWithoutFeedback onPress={() => router.back()}>
+                <View style={styles.backdrop} />
+            </TouchableWithoutFeedback>
             <View style={styles.overlay}>
-                <View style={[styles.modalContent, { backgroundColor: 'rgba(255, 255, 255, 0.98)' }]}>
+                <View style={[styles.modalContent, { paddingBottom: Math.max(20, insets.bottom + 10) }]}>
                     <View style={styles.dragHandleContainer}>
                         <View style={styles.dragHandle} />
                         <Text style={styles.handleText}>Record Delivery</Text>
@@ -152,7 +157,12 @@ export default function DeliveryFormModal() {
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        style={styles.scrollView}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                        bounces={true}
+                    >
                         <View style={styles.section}>
                             <Text style={styles.label}>Who Delivered?</Text>
                             <View style={styles.shopsList}>
@@ -362,6 +372,10 @@ export default function DeliveryFormModal() {
 }
 
 const styles = StyleSheet.create({
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(0, 0, 0, 0.4)",
+    },
     overlay: {
         flex: 1,
         justifyContent: "flex-end",
@@ -371,7 +385,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 20,
-        maxHeight: "90%",
+        maxHeight: "75%",
     },
     header: {
         flexDirection: "row",

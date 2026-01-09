@@ -21,9 +21,10 @@ function RootLayoutNav() {
                 <Stack.Screen
                     name="modal"
                     options={{
-                        presentation: "modal",
+                        presentation: "transparentModal",
                         headerShown: false,
-                        animation: "slide_from_bottom"
+                        animation: "fade_from_bottom",
+                        contentStyle: { backgroundColor: 'transparent' }
                     }}
                 />
             </Stack>

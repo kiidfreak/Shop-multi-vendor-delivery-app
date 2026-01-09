@@ -39,101 +39,105 @@ export default function DashboardScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <View style={styles.headerRow}>
-                        <View>
-                            <View style={styles.greetingRow}>
-                                <Text style={styles.greeting}>Hello, {settings.userName}!</Text>
-                                {isNight ? (
-                                    <Moon size={20} color={Colors.primary} fill={Colors.secondary} />
-                                ) : (
-                                    <Sun size={24} color="#FFB300" fill="#FFD54F" />
-                                )}
-                            </View>
-                            <Text style={styles.subtitle}>{settings.businessName}</Text>
+            {/* Sticky Header with Greeting and Profile */}
+            <View style={styles.header}>
+                <View style={styles.headerRow}>
+                    <View>
+                        <View style={styles.greetingRow}>
+                            <Text style={styles.greeting}>Hello, {settings.userName}!</Text>
+                            {isNight ? (
+                                <Moon size={20} color={Colors.primary} fill={Colors.secondary} />
+                            ) : (
+                                <Sun size={24} color="#FFB300" fill="#FFD54F" />
+                            )}
                         </View>
-                        <Pressable
-                            style={styles.profileButton}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setShowMenu(true);
-                            }}
-                        >
-                            <View style={styles.profileImageContainer}>
-                                {settings.profileImage ? (
-                                    <Image source={{ uri: settings.profileImage }} style={styles.profileImage} />
-                                ) : (
-                                    <User size={24} color={Colors.primary} />
-                                )}
-                            </View>
-                            <ChevronDown size={16} color={Colors.textLight} />
-                        </Pressable>
+                        <Text style={styles.subtitle}>{settings.businessName}</Text>
                     </View>
-                </View>
-
-                {/* Dropdown Menu Modal */}
-                <Modal
-                    visible={showMenu}
-                    transparent={true}
-                    animationType="fade"
-                    onRequestClose={() => setShowMenu(false)}
-                >
-                    <TouchableWithoutFeedback onPress={() => setShowMenu(false)}>
-                        <View style={styles.menuOverlay}>
-                            <View style={[styles.menuContainer, { right: 20, top: 80 }]}>
-                                <Pressable
-                                    style={styles.menuItem}
-                                    onPress={() => {
-                                        setShowMenu(false);
-                                        router.push("/analytics");
-                                    }}
-                                >
-                                    <BarChart3 size={20} color={Colors.primary} />
-                                    <Text style={styles.menuItemText}>View Analytics</Text>
-                                </Pressable>
-
-                                <Pressable
-                                    style={styles.menuItem}
-                                    onPress={() => {
-                                        setShowMenu(false);
-                                        router.push({ pathname: "/(tabs)/profile", params: { action: "add-shop" } });
-                                    }}
-                                >
-                                    <Store size={20} color={Colors.success} />
-                                    <Text style={styles.menuItemText}>Add Shop</Text>
-                                </Pressable>
-
-                                <Pressable
-                                    style={styles.menuItem}
-                                    onPress={() => {
-                                        setShowMenu(false);
-                                        router.push({ pathname: "/(tabs)/profile", params: { action: "add-seller" } });
-                                    }}
-                                >
-                                    <User size={20} color={Colors.primary} />
-                                    <Text style={styles.menuItemText}>Add Seller</Text>
-                                </Pressable>
-
-                                <View style={styles.menuDivider} />
-
-                                <Pressable
-                                    style={styles.menuItem}
-                                    onPress={() => {
-                                        setShowMenu(false);
-                                        router.push("/(tabs)/profile");
-                                    }}
-                                >
-                                    <Settings size={20} color={Colors.textLight} />
-                                    <Text style={styles.menuItemText}>Settings</Text>
-                                </Pressable>
-                            </View>
+                    <Pressable
+                        style={styles.profileButton}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setShowMenu(true);
+                        }}
+                    >
+                        <View style={styles.profileImageContainer}>
+                            {settings.profileImage ? (
+                                <Image source={{ uri: settings.profileImage }} style={styles.profileImage} />
+                            ) : (
+                                <User size={24} color={Colors.primary} />
+                            )}
                         </View>
-                    </TouchableWithoutFeedback>
-                </Modal>
+                        <ChevronDown size={16} color={Colors.textLight} />
+                    </Pressable>
+                </View>
+            </View>
 
+            {/* Dropdown Menu Modal */}
+            <Modal
+                visible={showMenu}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowMenu(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowMenu(false)}>
+                    <View style={styles.menuOverlay}>
+                        <View style={[styles.menuContainer, { right: 20, top: 80 }]}>
+                            <Pressable
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setShowMenu(false);
+                                    router.push("/analytics");
+                                }}
+                            >
+                                <BarChart3 size={20} color={Colors.primary} />
+                                <Text style={styles.menuItemText}>View Analytics</Text>
+                            </Pressable>
+
+                            <Pressable
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setShowMenu(false);
+                                    router.push({ pathname: "/(tabs)/profile", params: { action: "add-shop" } });
+                                }}
+                            >
+                                <Store size={20} color={Colors.textLight} />
+                                <Text style={styles.menuItemText}>Add Shop</Text>
+                            </Pressable>
+
+                            <Pressable
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setShowMenu(false);
+                                    router.push({ pathname: "/(tabs)/profile", params: { action: "add-seller" } });
+                                }}
+                            >
+                                <User size={20} color={Colors.textLight} />
+                                <Text style={styles.menuItemText}>Add Seller</Text>
+                            </Pressable>
+
+                            <View style={styles.menuDivider} />
+
+                            <Pressable
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setShowMenu(false);
+                                    router.push("/(tabs)/profile");
+                                }}
+                            >
+                                <Settings size={20} color={Colors.textLight} />
+                                <Text style={styles.menuItemText}>Settings</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
+
+            {/* Scrollable Content */}
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.statsContainer}>
-
                     <ScrollView
                         horizontal
                         snapToInterval={windowWidth - 30}
@@ -253,9 +257,9 @@ export default function DashboardScreen() {
                         </View>
                     )}
                 </View>
-            </ScrollView>
+            </ScrollView >
 
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 

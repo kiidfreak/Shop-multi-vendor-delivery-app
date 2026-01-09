@@ -63,26 +63,32 @@ export default function InventoryScreen() {
                     headerTintColor: Colors.text,
                 }}
             />
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <Text style={styles.title}>Stock Management</Text>
-                    <Text style={styles.subtitle}>Track your inventory levels</Text>
+
+            {/* Sticky Header */}
+            <View style={styles.header}>
+                <Text style={styles.title}>Stock Management</Text>
+                <Text style={styles.subtitle}>Track your inventory levels</Text>
+            </View>
+
+            <View style={styles.statsRow}>
+                <View style={[styles.statCard, styles.halfCard]}>
+                    <Package size={20} color={Colors.primary} />
+                    <Text style={styles.statLabel}>Total Items</Text>
+                    <Text style={styles.statValue}>{inventory.length}</Text>
                 </View>
 
-                <View style={styles.statsRow}>
-                    <View style={[styles.statCard, styles.halfCard]}>
-                        <Package size={20} color={Colors.primary} />
-                        <Text style={styles.statLabel}>Total Items</Text>
-                        <Text style={styles.statValue}>{inventory.length}</Text>
-                    </View>
-
-                    <View style={[styles.statCard, styles.halfCard]}>
-                        <TrendingDown size={20} color={Colors.warning} />
-                        <Text style={styles.statLabel}>Low Stock</Text>
-                        <Text style={styles.statValue}>{getLowStockCount()}</Text>
-                    </View>
+                <View style={[styles.statCard, styles.halfCard]}>
+                    <TrendingDown size={20} color={Colors.warning} />
+                    <Text style={styles.statLabel}>Low Stock</Text>
+                    <Text style={styles.statValue}>{getLowStockCount()}</Text>
                 </View>
+            </View>
 
+            {/* Scrollable Inventory List */}
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.inventoryContainer}>
                     {inventory.map((item) => {
                         const isLowStock = item.currentStock <= item.lowStockThreshold;

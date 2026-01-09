@@ -107,27 +107,34 @@ export default function ShopsScreen() {
                     headerShown: false,
                 }}
             />
-            <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
-                <View style={styles.header}>
-                    <View style={styles.headerTop}>
-                        <View>
-                            <Text style={styles.title}>Manage Shops</Text>
-                            <Text style={styles.subtitle}>Track deliveries and payments</Text>
-                        </View>
-                    </View>
 
-                    <View style={styles.searchContainer}>
-                        <Search size={20} color={Colors.textLight} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search shops..."
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            placeholderTextColor={Colors.textLight}
-                        />
+            {/* Sticky Header */}
+            <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <View>
+                        <Text style={styles.title}>Manage Shops</Text>
+                        <Text style={styles.subtitle}>Track deliveries and payments</Text>
                     </View>
                 </View>
 
+                <View style={styles.searchContainer}>
+                    <Search size={20} color={Colors.textLight} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search shops..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor={Colors.textLight}
+                    />
+                </View>
+            </View>
+
+            {/* Scrollable Shop List */}
+            <ScrollView
+                style={styles.scrollView}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.shopsContainer}>
                     {filteredShops.length > 0 ? (
                         filteredShops.map((shop) => {

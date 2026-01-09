@@ -1,40 +1,83 @@
 import { Stack, router } from "expo-router";
-import { ArrowLeft, User, Store, DollarSign, TrendingUp, AlertCircle } from "lucide-react-native";
+import { ArrowLeft, User, Store, DollarSign, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, Calendar } from "lucide-react-native";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
 import { useApp } from "@/contexts/AppContext";
 import Colors from "@/constants/colors";
 
 export default function AnalyticsScreen() {
-    const { getSellerAnalytics, shops, deliveries } = useApp();
+    const { getSellerAnalytics, shops, deliveries, sellers } = useApp();
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedDate, setSelectedDate] = useState(new Date());
     const analytics = getSellerAnalytics();
 
-    const today = new Date().toISOString().split("T")[0];
-    const todayDeliveries = deliveries.filter((d) => d.deliveryDate.startsWith(today));
+    const formatDate = (date: Date) => date.toISOString().split("T")[0];
+    const displayDate = (date: Date) => {
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
 
-    const totalSales = analytics.reduce((sum, a) => sum + a.totalSales, 0);
-    const totalPaid = analytics.reduce((sum, a) => sum + a.totalPaid, 0);
-    const totalPending = analytics.reduce((sum, a) => sum + a.totalPending, 0);
+        if (formatDate(date) === formatDate(today)) return "Today";
+        if (formatDate(date) === formatDate(yesterday)) return "Yesterday";
+        return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    };
+
+    const dateDeliveries = deliveries.filter((d) => d.deliveryDate.startsWith(formatDate(selectedDate)));
+
+    const totalSales = dateDeliveries.reduce((sum, d) => sum + d.totalAmount, 0);
+    const totalPaid = dateDeliveries.reduce((sum, d) => sum + (d.paidAmount || (d.isPaid ? d.totalAmount : 0)), 0);
+    const totalPending = totalSales - totalPaid;
 
     const getShopName = (shopId: string) => {
         return shops.find((s) => s.id === shopId)?.name || "Unknown Shop";
     };
 
+    const getSellerName = (sellerId: string) => {
+        return sellers.find((s) => s.id === sellerId)?.name || "Unknown Seller";
+    };
+
     const getSellerDeliveries = (sellerId: string) => {
-        return todayDeliveries.filter((d) => {
+        return dateDeliveries.filter((d) => {
             const shopName = getShopName(d.shopId).toLowerCase();
             return d.sellerId === sellerId && (searchQuery === "" || shopName.includes(searchQuery.toLowerCase()));
         });
     };
 
-    const filteredAnalytics = analytics.filter((data: any) => {
+    // Get unique sellers who have deliveries on this date
+    const activeSellersOnDate = [...new Set(dateDeliveries.map(d => d.sellerId))];
+
+    const filteredSellers = activeSellersOnDate.filter((sellerId) => {
         if (searchQuery === "") return true;
-        const sellerMatch = data.seller.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const shopMatch = getSellerDeliveries(data.seller.id).length > 0;
+        const seller = sellers.find(s => s.id === sellerId);
+        const sellerMatch = seller?.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const shopMatch = getSellerDeliveries(sellerId).length > 0;
         return sellerMatch || shopMatch;
     });
+
+    const goToPrevDay = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const newDate = new Date(selectedDate);
+        newDate.setDate(newDate.getDate() - 1);
+        setSelectedDate(newDate);
+    };
+
+    const goToNextDay = () => {
+        const today = new Date();
+        if (formatDate(selectedDate) >= formatDate(today)) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        const newDate = new Date(selectedDate);
+        newDate.setDate(newDate.getDate() + 1);
+        setSelectedDate(newDate);
+    };
+
+    const goToToday = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setSelectedDate(new Date());
+    };
+
+    const isToday = formatDate(selectedDate) === formatDate(new Date());
 
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
@@ -51,10 +94,27 @@ export default function AnalyticsScreen() {
                     ),
                 }}
             />
-            <ScrollView style={styles.scrollView}>
-                <View style={styles.header}>
-                    <Text style={styles.title}>Today&apos;s Performance</Text>
-                    <Text style={styles.subtitle}>Detailed breakdown by seller</Text>
+
+            {/* Sticky Header */}
+            <View style={styles.header}>
+                <Text style={styles.title}>Performance</Text>
+                <Text style={styles.subtitle}>Detailed breakdown by seller</Text>
+
+                {/* Date Navigation */}
+                <View style={styles.dateNav}>
+                    <Pressable style={styles.dateArrow} onPress={goToPrevDay}>
+                        <ChevronLeft size={24} color={Colors.primary} />
+                    </Pressable>
+                    <Pressable style={styles.dateDisplay} onPress={goToToday}>
+                        <Calendar size={16} color={Colors.primary} />
+                        <Text style={styles.dateText}>{displayDate(selectedDate)}</Text>
+                    </Pressable>
+                    <Pressable
+                        style={[styles.dateArrow, isToday && styles.dateArrowDisabled]}
+                        onPress={goToNextDay}
+                    >
+                        <ChevronRight size={24} color={isToday ? Colors.textLight : Colors.primary} />
+                    </Pressable>
                 </View>
 
                 <View style={styles.searchContainer}>
@@ -68,7 +128,14 @@ export default function AnalyticsScreen() {
                         />
                     </View>
                 </View>
+            </View>
 
+            {/* Scrollable Content */}
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+            >
                 <View style={styles.statsContainer}>
                     <View style={[styles.statCard, styles.primaryCard]}>
                         <TrendingUp size={20} color={Colors.card} />
@@ -94,66 +161,71 @@ export default function AnalyticsScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Seller Performance</Text>
 
-                    {filteredAnalytics.map((data) => (
-                        <View key={data.seller.id} style={styles.sellerCard}>
-                            <View style={styles.sellerHeader}>
-                                <View style={styles.sellerIconContainer}>
-                                    <User size={24} color={Colors.primary} />
-                                </View>
-                                <View style={styles.sellerInfo}>
-                                    <Text style={styles.sellerName}>{data.seller.name}</Text>
-                                    <View style={styles.sellerStats}>
-                                        <View style={styles.statBadge}>
-                                            <Store size={12} color={Colors.textLight} />
-                                            <Text style={styles.statBadgeText}>{data.customerCount} shops</Text>
-                                        </View>
-                                        <View style={styles.statBadge}>
-                                            <TrendingUp size={12} color={Colors.textLight} />
-                                            <Text style={styles.statBadgeText}>{data.deliveryCount} deliveries</Text>
+                    {filteredSellers.map((sellerId) => {
+                        const sellerDeliveries = getSellerDeliveries(sellerId);
+                        const sellerTotalSales = sellerDeliveries.reduce((sum, d) => sum + d.totalAmount, 0);
+                        const sellerTotalPaid = sellerDeliveries.reduce((sum, d) => sum + (d.paidAmount || (d.isPaid ? d.totalAmount : 0)), 0);
+                        const sellerPending = sellerTotalSales - sellerTotalPaid;
+
+                        if (sellerDeliveries.length === 0) return null;
+
+                        return (
+                            <View key={sellerId} style={styles.sellerCard}>
+                                <View style={styles.sellerHeader}>
+                                    <View style={styles.sellerIconContainer}>
+                                        <User size={24} color={Colors.primary} />
+                                    </View>
+                                    <View style={styles.sellerInfo}>
+                                        <Text style={styles.sellerName}>{getSellerName(sellerId)}</Text>
+                                        <View style={styles.sellerStats}>
+                                            <View style={styles.statBadge}>
+                                                <Store size={12} color={Colors.textLight} />
+                                                <Text style={styles.statBadgeText}>{sellerDeliveries.length} deliveries</Text>
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
+
+                                <View style={styles.metricsContainer}>
+                                    <View style={styles.metricRow}>
+                                        <Text style={styles.metricLabel}>Total Sales</Text>
+                                        <Text style={styles.metricValue}>KES {sellerTotalSales.toLocaleString()}</Text>
+                                    </View>
+                                    <View style={styles.metricRow}>
+                                        <Text style={styles.metricLabel}>Paid</Text>
+                                        <Text style={[styles.metricValue, styles.successText]}>
+                                            KES {sellerTotalPaid.toLocaleString()}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.metricRow}>
+                                        <Text style={styles.metricLabel}>Pending</Text>
+                                        <Text style={[styles.metricValue, styles.errorText]}>
+                                            KES {sellerPending.toLocaleString()}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {sellerDeliveries.length > 0 && (
+                                    <View style={styles.deliveriesSection}>
+                                        <Text style={styles.deliveriesTitle}>Deliveries</Text>
+                                        {sellerDeliveries.map((delivery) => (
+                                            <View key={delivery.id} style={styles.deliveryItem}>
+                                                <Store size={14} color={Colors.textLight} />
+                                                <Text style={styles.deliveryShop}>{getShopName(delivery.shopId)}</Text>
+                                                <Text style={styles.deliveryAmount}>KES {delivery.totalAmount}</Text>
+                                                <View style={[styles.statusDot, delivery.isPaid ? styles.statusPaid : styles.statusUnpaid]} />
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
+                        );
+                    })}
 
-                            <View style={styles.metricsContainer}>
-                                <View style={styles.metricRow}>
-                                    <Text style={styles.metricLabel}>Total Sales</Text>
-                                    <Text style={styles.metricValue}>KES {data.totalSales.toLocaleString()}</Text>
-                                </View>
-                                <View style={styles.metricRow}>
-                                    <Text style={styles.metricLabel}>Paid</Text>
-                                    <Text style={[styles.metricValue, styles.successText]}>
-                                        KES {data.totalPaid.toLocaleString()}
-                                    </Text>
-                                </View>
-                                <View style={styles.metricRow}>
-                                    <Text style={styles.metricLabel}>Pending</Text>
-                                    <Text style={[styles.metricValue, styles.errorText]}>
-                                        KES {data.totalPending.toLocaleString()}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            {data.deliveryCount > 0 && (
-                                <View style={styles.deliveriesSection}>
-                                    <Text style={styles.deliveriesTitle}>Today&apos;s Deliveries</Text>
-                                    {getSellerDeliveries(data.seller.id).map((delivery) => (
-                                        <View key={delivery.id} style={styles.deliveryItem}>
-                                            <Store size={14} color={Colors.textLight} />
-                                            <Text style={styles.deliveryShop}>{getShopName(delivery.shopId)}</Text>
-                                            <Text style={styles.deliveryAmount}>KES {delivery.totalAmount}</Text>
-                                            <View style={[styles.statusDot, delivery.isPaid ? styles.statusPaid : styles.statusUnpaid]} />
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-                    ))}
-
-                    {analytics.length === 0 && (
+                    {dateDeliveries.length === 0 && (
                         <View style={styles.emptyState}>
                             <TrendingUp size={40} color={Colors.textLight} />
-                            <Text style={styles.emptyStateText}>No sales data for today</Text>
+                            <Text style={styles.emptyStateText}>No sales data for {displayDate(selectedDate).toLowerCase()}</Text>
                         </View>
                     )}
                 </View>
@@ -175,45 +247,93 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 16,
+        backgroundColor: Colors.card,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        shadowColor: Colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
     },
     title: {
-        fontSize: 28,
+        fontSize: 24,
         fontWeight: "700" as const,
         color: Colors.text,
         marginBottom: 4,
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: 14,
         color: Colors.textLight,
+        marginBottom: 16,
+    },
+    dateNav: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 16,
+        gap: 12,
+    },
+    dateArrow: {
+        padding: 8,
+        backgroundColor: Colors.secondary,
+        borderRadius: 12,
+    },
+    dateArrowDisabled: {
+        opacity: 0.4,
+    },
+    dateDisplay: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        backgroundColor: Colors.secondary,
+        borderRadius: 20,
+        gap: 8,
+    },
+    dateText: {
+        fontSize: 16,
+        fontWeight: "600" as const,
+        color: Colors.primary,
+    },
+    searchContainer: {
+        marginTop: 0,
+    },
+    searchInputWrapper: {
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    searchInput: {
+        padding: 12,
+        fontSize: 14,
+        color: Colors.text,
     },
     statsContainer: {
-        paddingHorizontal: 20,
+        padding: 20,
         gap: 12,
-        marginBottom: 24,
     },
     statCard: {
-        backgroundColor: Colors.card,
-        borderRadius: 16,
         padding: 16,
-        shadowColor: Colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 3,
+        borderRadius: 16,
+        alignItems: "center",
     },
     primaryCard: {
         backgroundColor: Colors.primary,
     },
     successCard: {
-        backgroundColor: Colors.card,
-        borderWidth: 2,
-        borderColor: Colors.success,
+        backgroundColor: "#E8F5E9",
+        borderWidth: 1,
+        borderColor: "#C8E6C9",
     },
     errorCard: {
-        backgroundColor: Colors.card,
-        borderWidth: 2,
-        borderColor: Colors.error,
+        backgroundColor: "#FFEBEE",
+        borderWidth: 1,
+        borderColor: "#FFCDD2",
     },
     halfCard: {
         flex: 1,
@@ -224,9 +344,9 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         fontSize: 14,
-        color: Colors.secondary,
+        color: Colors.card,
         marginTop: 8,
-        marginBottom: 4,
+        opacity: 0.9,
     },
     statValue: {
         fontSize: 28,
@@ -236,23 +356,21 @@ const styles = StyleSheet.create({
     smallStatLabel: {
         fontSize: 12,
         color: Colors.textLight,
-        marginTop: 8,
-        marginBottom: 4,
+        marginTop: 4,
     },
     smallStatValue: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: "700" as const,
         color: Colors.text,
     },
     section: {
         paddingHorizontal: 20,
-        paddingBottom: 20,
     },
     sectionTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: "700" as const,
         color: Colors.text,
-        marginBottom: 16,
+        marginBottom: 12,
     },
     sellerCard: {
         backgroundColor: Colors.card,
@@ -268,7 +386,7 @@ const styles = StyleSheet.create({
     sellerHeader: {
         flexDirection: "row",
         alignItems: "center",
-        marginBottom: 16,
+        marginBottom: 12,
     },
     sellerIconContainer: {
         width: 48,
@@ -283,14 +401,14 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     sellerName: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "700" as const,
         color: Colors.text,
-        marginBottom: 8,
+        marginBottom: 4,
     },
     sellerStats: {
         flexDirection: "row",
-        gap: 12,
+        gap: 8,
     },
     statBadge: {
         flexDirection: "row",
@@ -302,27 +420,27 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     statBadgeText: {
-        fontSize: 12,
+        fontSize: 11,
         color: Colors.textLight,
     },
     metricsContainer: {
-        gap: 8,
-        marginBottom: 16,
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
     },
     metricRow: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.border,
+        paddingVertical: 6,
     },
     metricLabel: {
         fontSize: 14,
         color: Colors.textLight,
     },
     metricValue: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: "600" as const,
         color: Colors.text,
     },
@@ -333,32 +451,32 @@ const styles = StyleSheet.create({
         color: Colors.error,
     },
     deliveriesSection: {
-        borderTopWidth: 2,
+        borderTopWidth: 1,
         borderTopColor: Colors.border,
         paddingTop: 12,
     },
     deliveriesTitle: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: "600" as const,
-        color: Colors.text,
-        marginBottom: 12,
+        color: Colors.textLight,
+        textTransform: "uppercase",
+        marginBottom: 8,
     },
     deliveryItem: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
         paddingVertical: 8,
+        gap: 8,
     },
     deliveryShop: {
         flex: 1,
-        fontSize: 13,
+        fontSize: 14,
         color: Colors.text,
     },
     deliveryAmount: {
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: "600" as const,
         color: Colors.text,
-        marginRight: 8,
     },
     statusDot: {
         width: 8,
@@ -372,36 +490,16 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.error,
     },
     emptyState: {
-        backgroundColor: Colors.card,
-        borderRadius: 12,
-        padding: 32,
         alignItems: "center",
         justifyContent: "center",
+        padding: 40,
+        backgroundColor: Colors.card,
+        borderRadius: 16,
     },
     emptyStateText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: Colors.textLight,
-    },
-    searchContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 20,
-    },
-    searchInputWrapper: {
-        backgroundColor: Colors.card,
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        shadowColor: Colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    searchInput: {
         fontSize: 14,
-        color: Colors.text,
+        color: Colors.textLight,
+        marginTop: 12,
+        textAlign: "center",
     },
 });

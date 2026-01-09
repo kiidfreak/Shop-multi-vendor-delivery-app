@@ -385,6 +385,8 @@ export default function ProfileScreen() {
                         />
                     </View>
 
+                    <View style={styles.settingDivider} />
+
                     <View style={styles.settingItem}>
                         <Moon size={20} color={Colors.primary} />
                         <View style={styles.settingContent}>
@@ -764,5 +766,10 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         fontSize: 14,
         fontWeight: "600" as const,
+    },
+    settingDivider: {
+        height: 1,
+        backgroundColor: Colors.border,
+        marginVertical: 8,
     },
 });

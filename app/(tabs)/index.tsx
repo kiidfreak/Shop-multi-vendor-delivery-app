@@ -258,6 +258,9 @@ export default function DashboardScreen() {
                         </View>
                     )}
                 </View>
+
+                {/* Extra spacing at bottom for alerts to be visible */}
+                <View style={{ height: 20 }} />
             </ScrollView >
 
         </SafeAreaView >

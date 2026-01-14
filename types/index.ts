@@ -1,69 +1,72 @@
-export interface Shop {
+export interface Product {
     id: string;
     name: string;
-    owner: string;
-    location: string;
-    phone?: string;
-    isActive: boolean;
-}
-
-export interface InventoryItem {
-    id: string;
-    name: string;
-    currentStock: number;
-    unit: string;
-    lowStockThreshold: number;
     price: number;
+    image?: string;
+    category: "Miraa" | "Smoke" | "Munchies";
+    description?: string;
+    isPopular?: boolean;
+    inStock?: boolean;
 }
 
-export interface DeliveryItem {
-    inventoryItemId: string;
+export interface OrderItem {
+    productId: string;
     quantity: number;
     price: number;
 }
 
-export interface Delivery {
+export interface Order {
     id: string;
-    shopId: string;
-    sellerId: string;
-    items: DeliveryItem[];
+    userId?: string;
+    items: OrderItem[];
     totalAmount: number;
-    paidAmount: number;
-    isPaid: boolean;
-    deliveryDate: string;
-    paymentDate?: string;
-    notes?: string;
+    status: "Pending" | "Accepted" | "OnTheWay" | "Delivered" | "Cancelled";
+    riderId?: string;
+    createdAt: string;
+    deliveryEstimate?: string;
+    deliveryDetails?: {
+        name: string;
+        phone: string;
+        location: string;
+    };
+    paymentMethod?: "Cash" | "Mpesa";
+    deliveryFee?: number;
+    feeSuggested?: boolean;
 }
 
-export interface Seller {
+export type Role = "USER" | "RIDER" | "ADMIN";
+
+export interface Rider {
     id: string;
     name: string;
-    phone?: string;
-    isActive: boolean;
+    avatar?: string;
+    rating: number;
+    phone: string;
+    statusSummary: string; // "Rolling through traffic 😤"
+    status: "Available" | "Busy" | "Offline";
+    pin?: string; // In real app, this should be hashed
+    ordersCompleted: number;
+}
+
+export interface UserProfile {
+    name: string;
+    phone: string;
+    address: string;
+    avatar?: string;
 }
 
 export interface AppSettings {
-    hideShopsAfterPaid: boolean;
-    defaultLowStockThreshold: number;
     userName: string;
-    businessName: string;
-    profileImage?: string;
     darkMode: boolean;
 }
 
-export interface DailySummary {
-    date: string;
-    totalSales: number;
-    totalPaid: number;
-    totalUnpaid: number;
-    deliveryCount: number;
+export interface UserAccount {
+    id: string;
+    phone: string;
+    name?: string;
+    avatar?: string;
+    createdAt: string;
+    isGuest: boolean;
+    isBanned?: boolean;
 }
 
-export interface SellerAnalytics {
-    seller: Seller;
-    totalSales: number;
-    totalPaid: number;
-    totalPending: number;
-    customerCount: number;
-    deliveryCount: number;
-}

@@ -1,498 +1,427 @@
-import { Stack, router, useLocalSearchParams } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3, Moon } from "lucide-react-native";
-import React, { useState, useEffect } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable, Switch, Image } from "react-native";
-import * as ImagePicker from 'expo-image-picker';
+import { Stack, useRouter } from "expo-router";
+import { User, Moon, Settings as SettingsIcon, Shield, Monitor, Bike, UserPlus, Box, Unlock } from "lucide-react-native";
+import React, { useState } from "react";
+import { ScrollView, StyleSheet, Text, View, Switch, Image, TouchableOpacity, Alert, Modal, TextInput, Pressable, Vibration } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
-
-import type { Shop, Seller, InventoryItem } from "@/types";
+import * as Haptics from "expo-haptics";
+import { Role } from "@/types";
+import { BlurView } from "expo-blur";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, Edit2 } from "lucide-react-native";
 
 export default function ProfileScreen() {
-    const { shops, sellers, inventory, settings, saveShops, saveSellers, saveInventory, saveSettings, colors: Colors } = useApp();
+    // Note: removed switchRole, added attemptLogin
+    const { settings, colors: Colors, activeRole, attemptLogin, logoutRole, riders, currentRider, updateRider, currentUser, logoutUser, updateUser, toggleDarkMode, searchUsers, banUser } = useApp();
+    const router = useRouter();
     const styles = React.useMemo(() => createStyles(Colors), [Colors]);
-    const { action } = useLocalSearchParams();
 
-    const [showShopModal, setShowShopModal] = useState(false);
-    const [showAllShops, setShowAllShops] = useState(false);
-    const [showSellerModal, setShowSellerModal] = useState(false);
-    const [showPriceModal, setShowPriceModal] = useState(false);
-    const [editingShop, setEditingShop] = useState<Shop | null>(null);
-    const [editingSeller, setEditingSeller] = useState<Seller | null>(null);
-    const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [pin, setPin] = useState("");
+    const [nameEditVisible, setNameEditVisible] = useState(false);
+    const [newName, setNewName] = useState(currentUser?.name || "");
 
-    const [shopName, setShopName] = useState("");
-    const [shopOwner, setShopOwner] = useState("");
-    const [shopLocation, setShopLocation] = useState("");
-    const [shopPhone, setShopPhone] = useState("");
+    // --- Ban Modal State ---
+    const [banModalVisible, setBanModalVisible] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
-    const [sellerName, setSellerName] = useState("");
-    const [sellerPhone, setSellerPhone] = useState("");
-
-    const [itemPrice, setItemPrice] = useState("");
-    const [itemThreshold, setItemThreshold] = useState("");
-    const [itemName, setItemName] = useState("");
-
-    const [showProfileModal, setShowProfileModal] = useState(false);
-    const [tempUserName, setTempUserName] = useState(settings.userName);
-    const [tempBusinessName, setTempBusinessName] = useState(settings.businessName);
-
-    const openShopModal = (shop?: Shop) => {
-        if (shop) {
-            setEditingShop(shop);
-            setShopName(shop.name);
-            setShopOwner(shop.owner);
-            setShopLocation(shop.location);
-            setShopPhone(shop.phone || "");
-        } else {
-            setEditingShop(null);
-            setShopName("");
-            setShopOwner("");
-            setShopLocation("");
-            setShopPhone("");
-        }
-        setShowShopModal(true);
-    };
-
-    const openSellerModal = (seller?: Seller) => {
-        if (seller) {
-            setEditingSeller(seller);
-            setSellerName(seller.name);
-            setSellerPhone(seller.phone || "");
-        } else {
-            setEditingSeller(null);
-            setSellerName("");
-            setSellerPhone("");
-        }
-        setShowSellerModal(true);
-    };
-
-    const openPriceModal = (item: InventoryItem) => {
-        setEditingItem(item);
-        setItemName(item.name);
-        setItemPrice(item.price.toString());
-        setItemThreshold(item.lowStockThreshold.toString());
-        setShowPriceModal(true);
-    };
-
-    useEffect(() => {
-        if (action === "add-shop") {
-            openShopModal();
-        } else if (action === "add-seller") {
-            openSellerModal();
-        }
-    }, [action]);
-
-    const handleSaveShop = async () => {
-        if (!shopName || !shopOwner || !shopLocation) {
-            Alert.alert("Error", "Please fill all required fields");
-            return;
-        }
-
+    const handleLogout = () => {
+        logoutRole();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (editingShop) {
-            const updatedShops = shops.map((s) =>
-                s.id === editingShop.id
-                    ? { ...s, name: shopName, owner: shopOwner, location: shopLocation, phone: shopPhone || undefined }
-                    : s
-            );
-            await saveShops(updatedShops);
-        } else {
-            const newShop: Shop = {
-                id: Date.now().toString(),
-                name: shopName,
-                owner: shopOwner,
-                location: shopLocation,
-                phone: shopPhone || undefined,
-                isActive: true,
-            };
-            await saveShops([...shops, newShop]);
-        }
-        setShowShopModal(false);
     };
 
-    const handleSaveSeller = async () => {
-        if (!sellerName) {
-            Alert.alert("Error", "Please enter seller name");
-            return;
-        }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (editingSeller) {
-            const updatedSellers = sellers.map((s) =>
-                s.id === editingSeller.id ? { ...s, name: sellerName, phone: sellerPhone || undefined } : s
-            );
-            await saveSellers(updatedSellers);
-        } else {
-            const newSeller: Seller = {
-                id: Date.now().toString(),
-                name: sellerName,
-                phone: sellerPhone || undefined,
-                isActive: true,
-            };
-            await saveSellers([...sellers, newSeller]);
-        }
-        setShowSellerModal(false);
-    };
-
-    const handleSavePrice = async () => {
-        if (!editingItem || !itemPrice || !itemThreshold || !itemName) {
-            Alert.alert("Error", "Please fill all fields");
-            return;
-        }
-
-        const price = parseFloat(itemPrice);
-        const threshold = parseInt(itemThreshold);
-
-        if (isNaN(price) || isNaN(threshold)) {
-            Alert.alert("Error", "Please enter valid numbers");
-            return;
-        }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const updatedInventory = inventory.map((item) =>
-            item.id === editingItem.id ? { ...item, name: itemName, price, lowStockThreshold: threshold } : item
+    const handleFullLogout = () => {
+        Alert.alert(
+            "Logging Out?",
+            "You'll need to enter your phone again to access your orders.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: async () => {
+                        await logoutUser();
+                        router.replace("/onboarding");
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                }
+            ]
         );
-        await saveInventory(updatedInventory);
-        setShowPriceModal(false);
-    };
-
-    const handleDeleteShop = async (shopId: string) => {
-        Alert.alert("Archive Shop", "Archive this shop?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Archive",
-                style: "destructive",
-                onPress: async () => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    const updatedShops = shops.map((s: Shop) => (s.id === shopId ? { ...s, isActive: false } : s));
-                    await saveShops(updatedShops);
-                },
-            },
-        ]);
-    };
-
-    const handleDeleteSeller = async (sellerId: string) => {
-        Alert.alert("Archive Seller", "Archive this seller?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Archive",
-                style: "destructive",
-                onPress: async () => {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    const updatedSellers = sellers.map((s: Seller) => (s.id === sellerId ? { ...s, isActive: false } : s));
-                    await saveSellers(updatedSellers);
-                },
-            },
-        ]);
-    };
-
-    const toggleHideShopsAfterPaid = async (value: boolean) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await saveSettings({ ...settings, hideShopsAfterPaid: value });
     };
 
     const pickImage = async () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
-            quality: 0.7,
+            quality: 0.5, // limit size
         });
 
-        if (!result.canceled) {
-            await saveSettings({ ...settings, profileImage: result.assets[0].uri });
+        if (!result.canceled && result.assets[0].uri) {
+            updateUser({ avatar: result.assets[0].uri });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
     };
 
-    const handleSaveProfile = async () => {
-        if (!tempUserName || !tempBusinessName) {
-            Alert.alert("Error", "Please fill all fields");
-            return;
+    const handleUpdateName = () => {
+        if (newName.trim()) {
+            updateUser({ name: newName.trim() });
+            setNameEditVisible(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await saveSettings({ ...settings, userName: tempUserName, businessName: tempBusinessName });
-        setShowProfileModal(false);
     };
+
+    const handleAccessRequest = () => {
+        setPin("");
+        setModalVisible(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    };
+
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) return;
+        setIsSearching(true);
+        try {
+            const results = await searchUsers(searchQuery);
+            setSearchResults(results);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleBan = (userId: string, userName: string) => {
+        Alert.alert(
+            "BAN HAMMER 🔨",
+            `Are you SURE you want to ban ${userName || 'this user'}? They will be locked out immediately.`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "BAN THEM",
+                    style: "destructive",
+                    onPress: async () => {
+                        await banUser(userId);
+                        handleSearch(); // Refresh results
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                }
+            ]
+        );
+    };
+
 
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
-            <Stack.Screen
-                options={{
-                    headerShown: false,
-                }}
-            />
+            <Stack.Screen options={{ headerShown: false }} />
 
-            {/* Sticky Header - Profile Section */}
             <View style={styles.header}>
-                <TouchableOpacity style={styles.profileIconContainer} onPress={pickImage}>
-                    {settings.profileImage ? (
-                        <Image source={{ uri: settings.profileImage }} style={styles.profileImage} />
-                    ) : (
-                        <User size={40} color={Colors.primary} />
-                    )}
-                    <View style={styles.editBadge}>
-                        <Edit2 size={12} color={Colors.card} />
+                <TouchableOpacity onPress={pickImage} style={styles.profileIconWrapper}>
+                    <View style={[styles.profileIconContainer, { borderColor: activeRole === "ADMIN" ? Colors.accent : activeRole === "RIDER" ? Colors.secondary : Colors.primary }]}>
+                        <Image source={currentUser?.avatar ? { uri: currentUser.avatar } : require("@/assets/images/icon.png")} style={styles.profileImage} />
+                    </View>
+                    <View style={[styles.cameraIcon, { backgroundColor: Colors.primary }]}>
+                        <Camera size={14} color="#FFF" />
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title}>{settings.businessName}</Text>
-                <TouchableOpacity
-                    style={styles.editProfileButton}
-                    onPress={() => {
-                        setTempUserName(settings.userName);
-                        setTempBusinessName(settings.businessName);
-                        setShowProfileModal(true);
-                    }}
-                >
-                    <Text style={styles.editProfileText}>Edit Profile</Text>
+
+                <TouchableOpacity style={styles.nameRow} onPress={() => { setNewName(currentUser?.name || ""); setNameEditVisible(true); }}>
+                    <Text style={styles.title}>{currentUser?.name || (currentUser?.isGuest ? "Guest User" : "Famous Fam")}</Text>
+                    <Edit2 size={16} color={Colors.textLight} style={{ marginLeft: 8 }} />
                 </TouchableOpacity>
+
+                {currentUser?.phone && <Text style={styles.subtitle}>{currentUser.phone}</Text>}
+                <Text style={[styles.roleBadge, { color: activeRole === "ADMIN" ? Colors.accent : activeRole === "RIDER" ? Colors.secondary : Colors.primary }]}>
+                    {activeRole === "USER" ? (currentUser?.isGuest ? "STASHING ANONYMOUSLY 🎭" : "Stay High, Stay Fly 🌿") : activeRole === "ADMIN" ? "GOD MODE" : "ON DUTY"}
+                </Text>
             </View>
 
-            {/* Scrollable Content */}
-            <ScrollView
-                style={styles.scrollView}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 100 }}
-            >
-                <Pressable
-                    style={({ pressed }) => [styles.analyticsCard, pressed && styles.cardPressed]}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        router.push("/analytics");
-                    }}
-                >
-                    <BarChart3 size={24} color={Colors.primary} />
-                    <View style={styles.analyticsTextContainer}>
-                        <Text style={styles.analyticsTitle}>View Analytics</Text>
-                        <Text style={styles.analyticsSubtitle}>See detailed sales breakdown by seller</Text>
-                    </View>
-                </Pressable>
+            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Shops</Text>
-                        <Pressable
-                            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                            onPress={() => openShopModal()}
-                        >
-                            <Plus size={20} color={Colors.card} />
-                        </Pressable>
-                    </View>
-
-                    {shops
-                        .filter((s: Shop) => s.isActive)
-                        .slice(0, showAllShops ? undefined : 3)
-                        .map((shop: Shop) => (
-                            <View key={shop.id} style={styles.listItem}>
-                                <Store size={20} color={Colors.primary} />
-                                <View style={styles.listItemContent}>
-                                    <Text style={styles.listItemTitle}>{shop.name}</Text>
-                                    <Text style={styles.listItemSubtitle}>{shop.location}</Text>
-                                </View>
-                                <TouchableOpacity onPress={() => openShopModal(shop)} style={styles.iconButton}>
-                                    <Edit2 size={18} color={Colors.primary} />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleDeleteShop(shop.id)} style={styles.iconButton}>
-                                    <Trash2 size={18} color={Colors.error} />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-
-                    {shops.filter((s: Shop) => s.isActive).length > 3 && (
-                        <TouchableOpacity
-                            style={styles.moreButton}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setShowAllShops(!showAllShops);
-                            }}
-                        >
-                            <Text style={styles.moreButtonText}>
-                                {showAllShops ? "Show Less" : `Show ${shops.filter((s: Shop) => s.isActive).length - 3} More Shops`}
-                            </Text>
+                {/* Guest Upgrade Banner */}
+                {currentUser?.isGuest && activeRole === "USER" && (
+                    <View style={[styles.guestBanner, { backgroundColor: Colors.primary + '20', borderColor: Colors.primary }]}>
+                        <Text style={{ color: Colors.text, fontWeight: 'bold', marginBottom: 4 }}>Wanna keep your history? 🔥</Text>
+                        <Text style={{ color: Colors.textLight, fontSize: 12, marginBottom: 12 }}>Create an account to track your orders across all devices.</Text>
+                        <TouchableOpacity style={[styles.upgradeButton, { backgroundColor: Colors.primary }]} onPress={() => router.push("/onboarding")}>
+                            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Register Now</Text>
                         </TouchableOpacity>
-                    )}
-                </View>
-
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Sellers</Text>
-                        <Pressable
-                            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                            onPress={() => openSellerModal()}
-                        >
-                            <Plus size={20} color={Colors.card} />
-                        </Pressable>
                     </View>
+                )}
 
-                    {sellers.filter((s: Seller) => s.isActive).map((seller: Seller) => (
-                        <View key={seller.id} style={styles.listItem}>
-                            <User size={20} color={Colors.primary} />
-                            <View style={styles.listItemContent}>
-                                <Text style={styles.listItemTitle}>{seller.name}</Text>
-                                {seller.phone && <Text style={styles.listItemSubtitle}>{seller.phone}</Text>}
+                {/* Access Level removed from main view as requested */}
+
+                {/* Admin Controls */}
+                {activeRole === "ADMIN" && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: Colors.accent }]}>God Mode Controls</Text>
+
+                        <TouchableOpacity
+                            style={[styles.adminButton, { borderColor: Colors.border }]}
+                            onPress={() => router.push("/riders")}
+                        >
+                            <UserPlus size={24} color={Colors.text} />
+                            <View style={{ marginLeft: 12 }}>
+                                <Text style={[styles.adminButtonText, { color: Colors.text }]}>Manage Riders ({riders.length})</Text>
+                                <Text style={{ color: Colors.textLight, fontSize: 12 }}>Add, remove, or edit rider pins</Text>
                             </View>
-                            <TouchableOpacity onPress={() => openSellerModal(seller)} style={styles.iconButton}>
-                                <Edit2 size={18} color={Colors.primary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleDeleteSeller(seller.id)} style={styles.iconButton}>
-                                <Trash2 size={18} color={Colors.error} />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                </View>
+                        </TouchableOpacity>
 
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Item Prices & Thresholds</Text>
-                    </View>
-
-                    {inventory.map((item) => (
-                        <Pressable
-                            key={item.id}
-                            style={({ pressed }) => [styles.listItem, pressed && styles.listItemPressed]}
-                            onPress={() => openPriceModal(item)}
+                        <TouchableOpacity
+                            style={[styles.adminButton, { borderColor: Colors.border }]}
+                            onPress={() => setBanModalVisible(true)}
                         >
-                            <DollarSign size={20} color={Colors.success} />
-                            <View style={styles.listItemContent}>
-                                <Text style={styles.listItemTitle}>{item.name}</Text>
-                                <Text style={styles.listItemSubtitle}>
-                                    KES {item.price} • Alert at {item.lowStockThreshold} {item.unit}
+                            <Shield size={24} color={Colors.accent} />
+                            <View style={{ marginLeft: 12 }}>
+                                <Text style={[styles.adminButtonText, { color: Colors.text }]}>Ban Hammer 🔨</Text>
+                                <Text style={{ color: Colors.textLight, fontSize: 12 }}>Search & ban problematic accounts</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.adminButton, { borderColor: Colors.border }]}
+                            onPress={() => router.push("/inventory")}
+                        >
+                            <Box size={24} color={Colors.text} />
+                            <View style={{ marginLeft: 12 }}>
+                                <Text style={[styles.adminButtonText, { color: Colors.text }]}>Manage Stock</Text>
+                                <Text style={{ color: Colors.textLight, fontSize: 12 }}>Update prices & availability</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Rider Info */}
+                {activeRole === "RIDER" && riders.find(r => r.id === riders.find(r2 => r2.id === riders.find(r3 => r3.id === riders.find(r4 => r4.id === riders.find(r5 => r5.name === settings.userName)?.id)?.id)?.id)?.id)?.id ? (
+                    // Logic fix: accessing current Rider from hook would be better, but we already have `currentRider` in AppContext
+                    /* Just using currentRider from context would be cleaner */
+                    <View></View>
+                ) : null}
+
+                {activeRole === "RIDER" && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: Colors.secondary }]}>Rider Ops</Text>
+
+                        {/* Status Toggle */}
+                        <View style={[styles.settingItem, { backgroundColor: Colors.card }]}>
+                            <Bike size={24} color={Colors.secondary} />
+                            <View style={styles.settingContent}>
+                                <Text style={[styles.settingTitle, { color: Colors.text }]}>
+                                    Status: {currentRider?.status || "Unknown"}
+                                </Text>
+                                <Text style={styles.settingSubtitle}>
+                                    {currentRider?.status === "Available" ? "You are visible to dispatch." : "You are hidden."}
                                 </Text>
                             </View>
-                            <Edit2 size={18} color={Colors.primary} />
-                        </Pressable>
-                    ))}
-                </View>
+                            <Switch
+                                value={currentRider?.status === "Available"}
+                                onValueChange={(val) => {
+                                    if (currentRider) {
+                                        updateRider(currentRider.id, { status: val ? "Available" : "Offline" });
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    }
+                                }}
+                                trackColor={{ false: Colors.border, true: Colors.secondary }}
+                            />
+                        </View>
+
+                        {/* Simple Stats */}
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                            <View style={[styles.statCard, { backgroundColor: Colors.card, borderColor: Colors.secondary }]}>
+                                <Text style={[styles.statValue, { color: Colors.text }]}>{currentRider?.ordersCompleted || 0}</Text>
+                                <Text style={{ color: Colors.textLight, fontSize: 12 }}>Runs</Text>
+                            </View>
+                            <View style={[styles.statCard, { backgroundColor: Colors.card, borderColor: Colors.secondary }]}>
+                                <Text style={[styles.statValue, { color: Colors.text }]}>{currentRider?.rating || 5.0} ★</Text>
+                                <Text style={{ color: Colors.textLight, fontSize: 12 }}>Rating</Text>
+                            </View>
+                        </View>
+
+                    </View>
+                )}
 
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Settings</Text>
+                        <Text style={styles.sectionTitle}>Preferences</Text>
                     </View>
-
-                    <View style={styles.settingItem}>
-                        <SettingsIcon size={20} color={Colors.primary} />
-                        <View style={styles.settingContent}>
-                            <Text style={styles.settingTitle}>Hide Paid Shops</Text>
-                            <Text style={styles.settingSubtitle}>Hide shops with no pending payments</Text>
-                        </View>
-                        <Switch
-                            value={settings.hideShopsAfterPaid}
-                            onValueChange={toggleHideShopsAfterPaid}
-                            trackColor={{ false: Colors.border, true: Colors.primary }}
-                            thumbColor={Colors.card}
-                        />
-                    </View>
-
-                    <View style={styles.settingDivider} />
-
                     <View style={styles.settingItem}>
                         <Moon size={20} color={Colors.primary} />
                         <View style={styles.settingContent}>
                             <Text style={styles.settingTitle}>Dark Mode</Text>
-                            <Text style={styles.settingSubtitle}>Switch to dark theme</Text>
+                            <Text style={styles.settingSubtitle}>{settings.darkMode ? "Stay High, Stay Dark 🌙" : "Light mode is active ☀️"}</Text>
                         </View>
                         <Switch
                             value={settings.darkMode}
-                            onValueChange={async (value) => {
-                                await saveSettings({ ...settings, darkMode: value });
-                            }}
+                            onValueChange={toggleDarkMode}
                             trackColor={{ false: Colors.border, true: Colors.primary }}
                             thumbColor={Colors.card}
                         />
                     </View>
                 </View>
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: Colors.error || '#FF3B30' }]}>Account</Text>
+                    <TouchableOpacity style={[styles.settingItem, { backgroundColor: 'rgba(255, 59, 48, 0.1)' }]} onPress={handleFullLogout}>
+                        <Ionicons name="log-out-outline" size={20} color={Colors.error || '#FF3B30'} />
+                        <View style={styles.settingContent}>
+                            <Text style={[styles.settingTitle, { color: Colors.error || '#FF3B30' }]}>Sign Out</Text>
+                            <Text style={styles.settingSubtitle}>Log out of this device</Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={{ color: Colors.textLight, textAlign: "center", fontSize: 12 }}>Version 4.2.0 (Mayhem Edition)</Text>
+                    {activeRole === "USER" && (
+                        <TouchableOpacity
+                            onLongPress={handleAccessRequest}
+                            delayLongPress={3000}
+                            style={{ marginTop: 20 }}
+                        >
+                            <Text style={{ color: Colors.background, textAlign: "center", fontSize: 10 }}>.</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
             </ScrollView>
 
-            <Modal visible={showShopModal} animationType="slide" transparent={true} onRequestClose={() => setShowShopModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{editingShop ? "Edit Shop" : "Add Shop"}</Text>
-
-                        <TextInput style={styles.input} placeholder="Shop Name *" value={shopName} onChangeText={setShopName} />
-                        <TextInput style={styles.input} placeholder="Owner Name *" value={shopOwner} onChangeText={setShopOwner} />
-                        <TextInput style={styles.input} placeholder="Location *" value={shopLocation} onChangeText={setShopLocation} />
-                        <TextInput style={styles.input} placeholder="Phone (Optional)" value={shopPhone} onChangeText={setShopPhone} keyboardType="phone-pad" />
-
+            {/* Name Edit Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={nameEditVisible}
+                onRequestClose={() => setNameEditVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <BlurView intensity={40} style={StyleSheet.absoluteFill} tint="dark" />
+                    <View style={[styles.modalContent, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: Colors.text }]}>Update Name</Text>
+                        <TextInput
+                            style={[styles.pinInput, { color: Colors.text, borderColor: Colors.primary, fontSize: 20, letterSpacing: 0, height: 50 }]}
+                            value={newName}
+                            onChangeText={setNewName}
+                            autoFocus
+                            placeholder="Your Name"
+                            placeholderTextColor={Colors.textLight}
+                        />
                         <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowShopModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: Colors.card }]} onPress={() => setNameEditVisible(false)}>
+                                <Text style={{ color: Colors.text }}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveShop}>
-                                <Text style={styles.modalSaveText}>Save</Text>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: Colors.primary }]} onPress={handleUpdateName}>
+                                <Text style={{ color: "#FFF", fontWeight: "bold" }}>Save</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
                 </View>
             </Modal>
 
-            <Modal visible={showSellerModal} animationType="slide" transparent={true} onRequestClose={() => setShowSellerModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{editingSeller ? "Edit Seller" : "Add Seller"}</Text>
-
-                        <TextInput style={styles.input} placeholder="Seller Name *" value={sellerName} onChangeText={setSellerName} />
-                        <TextInput style={styles.input} placeholder="Phone (Optional)" value={sellerPhone} onChangeText={setSellerPhone} keyboardType="phone-pad" />
-
+            {/* PIN Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <BlurView intensity={40} style={StyleSheet.absoluteFill} tint="dark" />
+                    <View style={[styles.modalContent, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: Colors.text }]}>Security Clearance</Text>
+                        <TextInput
+                            style={[styles.pinInput, { color: Colors.text, borderColor: Colors.primary }]}
+                            value={pin}
+                            onChangeText={setPin}
+                            keyboardType="number-pad"
+                            maxLength={8}
+                            secureTextEntry
+                            autoFocus
+                            placeholder="****"
+                            placeholderTextColor={Colors.textLight}
+                        />
                         <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowSellerModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: Colors.card }]} onPress={() => setModalVisible(false)}>
+                                <Text style={{ color: Colors.text }}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveSeller}>
-                                <Text style={styles.modalSaveText}>Save</Text>
+                            <TouchableOpacity style={[styles.modalButton, { backgroundColor: Colors.primary }]} onPress={async () => {
+                                const success = await attemptLogin(pin);
+                                if (success) {
+                                    setModalVisible(false);
+                                    setPin("");
+                                } else {
+                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                                    Alert.alert("Access Denied", "Wrong PIN.");
+                                }
+                            }}>
+                                <Text style={{ color: "#FFF", fontWeight: "bold" }}>Access</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
                 </View>
             </Modal>
 
-            <Modal visible={showPriceModal} animationType="slide" transparent={true} onRequestClose={() => setShowPriceModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit {editingItem?.name}</Text>
-
-                        <Text style={styles.inputLabel}>Item Name</Text>
-                        <TextInput style={styles.input} placeholder="Item Name" value={itemName} onChangeText={setItemName} />
-
-                        <Text style={styles.inputLabel}>Price (KES)</Text>
-                        <TextInput style={styles.input} placeholder="Price" value={itemPrice} onChangeText={setItemPrice} keyboardType="numeric" />
-
-                        <Text style={styles.inputLabel}>Low Stock Alert Threshold</Text>
-                        <TextInput style={styles.input} placeholder="Threshold" value={itemThreshold} onChangeText={setItemThreshold} keyboardType="numeric" />
-
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowPriceModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSavePrice}>
-                                <Text style={styles.modalSaveText}>Save</Text>
+            {/* Ban Hammer Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={banModalVisible}
+                onRequestClose={() => setBanModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <BlurView intensity={60} style={StyleSheet.absoluteFill} tint="dark" />
+                    <View style={[styles.modalContent, { backgroundColor: Colors.card, width: '90%', height: '80%' }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 }}>
+                            <Text style={[styles.modalTitle, { color: Colors.accent, marginBottom: 0 }]}>BAN HAMMER 🔨</Text>
+                            <TouchableOpacity onPress={() => setBanModalVisible(false)}>
+                                <Ionicons name="close" size={24} color={Colors.text} />
                             </TouchableOpacity>
                         </View>
-                    </View>
-                </View>
-            </Modal>
 
-            <Modal visible={showProfileModal} animationType="slide" transparent={true} onRequestClose={() => setShowProfileModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit Profile</Text>
-
-                        <Text style={styles.inputLabel}>Your Name</Text>
-                        <TextInput style={styles.input} placeholder="Your Name" value={tempUserName} onChangeText={setTempUserName} />
-
-                        <Text style={styles.inputLabel}>Business Name</Text>
-                        <TextInput style={styles.input} placeholder="Business Name" value={tempBusinessName} onChangeText={setTempBusinessName} />
-
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowProfileModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveProfile}>
-                                <Text style={styles.modalSaveText}>Save</Text>
+                        <View style={{ flexDirection: 'row', width: '100%', marginBottom: 20 }}>
+                            <TextInput
+                                style={[styles.pinInput, { flex: 1, height: 50, fontSize: 16, textAlign: 'left', paddingHorizontal: 15, marginBottom: 0, letterSpacing: 0 }]}
+                                placeholder="Search by name or phone..."
+                                placeholderTextColor={Colors.textLight}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                returnKeyType="search"
+                                onSubmitEditing={handleSearch}
+                            />
+                            <TouchableOpacity
+                                style={{ backgroundColor: Colors.primary, paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', marginLeft: 10 }}
+                                onPress={handleSearch}
+                            >
+                                <Ionicons name="search" size={20} color="#FFF" />
                             </TouchableOpacity>
                         </View>
+
+                        <ScrollView style={{ width: '100%' }}>
+                            {isSearching ? (
+                                <Text style={{ color: Colors.text, textAlign: 'center' }}>Searching users...</Text>
+                            ) : searchResults.length > 0 ? (
+                                searchResults.map(user => (
+                                    <View key={user.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, marginBottom: 10 }}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ color: Colors.text, fontWeight: 'bold' }}>{user.name || 'No Name'}</Text>
+                                            <Text style={{ color: Colors.textLight, fontSize: 12 }}>{user.phone}</Text>
+                                            {user.isBanned && <Text style={{ color: Colors.accent, fontSize: 10, fontWeight: 'bold', marginTop: 2 }}>BANNED ACCOUNT 🚫</Text>}
+                                        </View>
+                                        {!user.isBanned && (
+                                            <TouchableOpacity
+                                                style={{ backgroundColor: Colors.accent, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}
+                                                onPress={() => handleBan(user.id, user.name)}
+                                            >
+                                                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 12 }}>BAN</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ))
+                            ) : searchQuery && !isSearching ? (
+                                <Text style={{ color: Colors.textLight, textAlign: 'center' }}>No users found for "{searchQuery}"</Text>
+                            ) : (
+                                <Text style={{ color: Colors.textLight, textAlign: 'center' }}>Enter a name or phone to start tracking.</Text>
+                            )}
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -501,276 +430,44 @@ export default function ProfileScreen() {
 }
 
 const createStyles = (Colors: any) => StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    header: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-        paddingTop: 10,
-        alignItems: "center",
-        backgroundColor: Colors.background,
-        marginBottom: 10,
-    },
-    profileIconContainer: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: Colors.secondary,
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
-        borderWidth: 3,
-        borderColor: Colors.primary,
-        overflow: "hidden",
-        position: "relative",
-    },
-    profileImage: {
-        width: "100%",
-        height: "100%",
-    },
-    editBadge: {
-        position: "absolute",
-        bottom: 0,
-        right: 0,
-        backgroundColor: Colors.primary,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        alignItems: "center",
-        justifyContent: "center",
-        borderWidth: 2,
-        borderColor: Colors.card,
-    },
-    editProfileButton: {
-        marginTop: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: Colors.secondary,
-    },
-    editProfileText: {
-        color: Colors.primary,
-        fontSize: 12,
-        fontWeight: "700" as const,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "700" as const,
-        color: Colors.text,
-        marginBottom: 4,
-    },
-    subtitle: {
-        fontSize: 14,
-        color: Colors.textLight,
-    },
-    analyticsCard: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: Colors.card,
-        marginHorizontal: 20,
-        marginBottom: 20,
-        padding: 16,
-        borderRadius: 16,
-        shadowColor: Colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
-        elevation: 3,
-        borderWidth: 2,
-        borderColor: Colors.primary,
-    },
-    cardPressed: {
-        opacity: 0.9,
-        transform: [{ scale: 0.98 }],
-    },
-    analyticsTextContainer: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    analyticsTitle: {
-        fontSize: 16,
-        fontWeight: "700" as const,
-        color: Colors.text,
-        marginBottom: 4,
-    },
-    analyticsSubtitle: {
-        fontSize: 12,
-        color: Colors.textLight,
-    },
-    section: {
-        paddingHorizontal: 20,
-        marginBottom: 24,
-    },
-    sectionHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 12,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "700" as const,
-        color: Colors.text,
-    },
-    addButton: {
-        backgroundColor: Colors.primary,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    addButtonPressed: {
-        opacity: 0.8,
-        transform: [{ scale: 0.95 }],
-    },
-    listItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: Colors.card,
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
-        shadowColor: Colors.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    listItemPressed: {
-        opacity: 0.9,
-        transform: [{ scale: 0.98 }],
-    },
-    listItemContent: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    listItemTitle: {
-        fontSize: 14,
-        fontWeight: "600" as const,
-        color: Colors.text,
-        marginBottom: 2,
-    },
-    listItemSubtitle: {
-        fontSize: 12,
-        color: Colors.textLight,
-    },
-    iconButton: {
-        padding: 8,
-    },
-    settingItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: Colors.card,
-        padding: 16,
-        borderRadius: 12,
-        shadowColor: Colors.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    settingContent: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    settingTitle: {
-        fontSize: 14,
-        fontWeight: "600" as const,
-        color: Colors.text,
-        marginBottom: 2,
-    },
-    settingSubtitle: {
-        fontSize: 12,
-        color: Colors.textLight,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        justifyContent: "center",
-        padding: 20,
-    },
-    modalContent: {
-        backgroundColor: Colors.background,
-        borderRadius: 24,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: "700" as const,
-        color: Colors.text,
-        marginBottom: 16,
-    },
-    inputLabel: {
-        fontSize: 14,
-        fontWeight: "600" as const,
-        color: Colors.text,
-        marginBottom: 8,
-        marginTop: 8,
-    },
-    input: {
-        backgroundColor: Colors.background,
-        borderRadius: 12,
-        padding: 14,
-        fontSize: 14,
-        color: Colors.text,
-        borderWidth: 2,
-        borderColor: Colors.border,
-        marginBottom: 12,
-    },
-    modalButtons: {
-        flexDirection: "row",
-        gap: 12,
-        marginTop: 8,
-    },
-    modalCancelButton: {
-        flex: 1,
-        padding: 14,
-        borderRadius: 12,
-        alignItems: "center",
-        backgroundColor: Colors.background,
-        borderWidth: 2,
-        borderColor: Colors.border,
-    },
-    modalCancelText: {
-        color: Colors.text,
-        fontSize: 16,
-        fontWeight: "600" as const,
-    },
-    modalSaveButton: {
-        flex: 1,
-        padding: 14,
-        borderRadius: 12,
-        alignItems: "center",
-        backgroundColor: Colors.primary,
-    },
-    modalSaveText: {
-        color: Colors.card,
-        fontSize: 16,
-        fontWeight: "700" as const,
-    },
-    moreButton: {
-        alignItems: "center",
-        paddingVertical: 12,
-        backgroundColor: Colors.secondary,
-        borderRadius: 12,
-        marginTop: 4,
-    },
-    moreButtonText: {
-        color: Colors.primary,
-        fontSize: 14,
-        fontWeight: "600" as const,
-    },
-    settingDivider: {
-        height: 1,
-        backgroundColor: Colors.border,
-        marginVertical: 8,
-    },
+    container: { flex: 1, backgroundColor: Colors.background },
+    scrollView: { flex: 1, padding: 20 },
+    header: { alignItems: "center", marginBottom: 30, marginTop: 20 },
+    profileIconWrapper: { position: 'relative' },
+    cameraIcon: { position: 'absolute', bottom: 5, right: 0, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: Colors.card },
+    profileIconContainer: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, overflow: "hidden", marginBottom: 5 },
+    profileImage: { width: "100%", height: "100%" },
+    nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+    title: { fontSize: 24, fontWeight: "bold", color: Colors.text },
+    subtitle: { fontSize: 14, color: Colors.textLight, marginBottom: 4 },
+    roleBadge: { fontSize: 14, fontWeight: "bold", marginTop: 4, letterSpacing: 1 },
+    section: { marginBottom: 24 },
+    sectionHeader: { marginBottom: 12 },
+    sectionTitle: { fontSize: 18, fontWeight: "bold", color: Colors.text, marginBottom: 12 },
+    settingItem: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.card, padding: 16, borderRadius: 12, marginBottom: 10 },
+    settingContent: { flex: 1, marginLeft: 12 },
+    settingTitle: { fontSize: 14, fontWeight: "600", color: Colors.text },
+    settingSubtitle: { fontSize: 12, color: Colors.textLight },
+
+    // Access Control
+    accessCard: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 16, borderRadius: 12, borderWidth: 1, gap: 10 },
+    accessText: { fontWeight: "bold", fontSize: 16 },
+
+    // Admin
+    adminButton: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.card, padding: 16, borderRadius: 12, marginBottom: 10, borderWidth: 1 },
+    adminButtonText: { fontWeight: "bold", fontSize: 16 },
+
+    // Modal
+    modalContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" },
+    modalContent: { width: "80%", padding: 24, borderRadius: 24, borderWidth: 1, alignItems: "center" },
+    modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20, letterSpacing: 1 },
+    pinInput: { width: "100%", height: 60, borderWidth: 1, borderRadius: 12, fontSize: 32, textAlign: "center", marginBottom: 20, letterSpacing: 6, fontWeight: "bold" },
+    modalButtons: { flexDirection: "row", gap: 10, width: "100%" },
+    modalButton: { flex: 1, padding: 16, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    statCard: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+    statValue: { fontSize: 24, fontWeight: "bold", marginBottom: 4 },
+
+    // Guest Banner
+    guestBanner: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 24 },
+    upgradeButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, alignSelf: 'flex-start' },
 });

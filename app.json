@@ -1,28 +1,28 @@
 {
   "expo": {
-    "name": "Eddu",
-    "slug": "eddu",
+    "name": "MAYHEM",
+    "slug": "mayhem",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rork-app",
-    "userInterfaceStyle": "automatic",
+    "scheme": "mayhem-app",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/adaptive-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#0B1020"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.eddu.deliveries"
+      "bundleIdentifier": "app.mayhem.deliveries"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#0B1020"
       },
-      "package": "app.eddu.deliveries",
+      "package": "app.mayhem.deliveries",
       "permissions": [
         "android.permission.VIBRATE"
       ]
@@ -48,7 +48,7 @@
         "origin": "https://rork.com/"
       },
       "eas": {
-        "projectId": "42886d49-d6f0-4261-bfaf-67a6ce59aa65"
+        "projectId": "e1b1c0b6-0d23-4169-9e99-332b78d52cad"
       }
     }
   }

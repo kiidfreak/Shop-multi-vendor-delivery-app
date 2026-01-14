@@ -1,94 +1,82 @@
-# Eddu - Multi-Vendor Delivery & Inventory Management
+# MAYHEM - Delivery Management System
 
-Eddu is a premium, high-performance mobile application designed for businesses managing multi-vendor deliveries, shop balances, and inventory in real-time. Built with a focus on speed, aesthetics, and reliability, Eddu empowers business owners to track sales, manage sellers, and maintain healthy inventory levels effortlessly.
+> **Your plug for fast deliveries** 🔥
 
-> **Version 1.0** - Local-First Architecture
+MAYHEM is a premium mobile application for managing multi-role delivery operations, real-time order tracking, and inventory management. Built with React Native and Expo, it provides seamless experiences for customers, riders, and admins.
 
 ## 🚀 Key Features
 
-### 📦 Dynamic Inventory Management
-- Real-time stock tracking with low-stock alerts
-- Quick adjustments and price management for all items
-- Visual status indicators and progress bars for stock levels
+### 👥 Multi-Role System
+- **User/Customer**: Browse products, place orders, track deliveries in real-time
+- **Rider**: Receive assignments, manage deliveries, track earnings
+- **Admin**: Oversee operations, manage inventory, assign riders, ban users
 
-### 🏪 Multi-Vendor Shop Tracking
-- Comprehensive shop database with owner details and locations
-- **Partial Payment Logic**: Visual distinction between paid, partially paid (Orange), and unpaid (Red) shop balances
-- **Quick Add Shop**: Add new clients instantly from the delivery form
-- **Smart Filtering**: Filter shops by payment status (All, Unpaid, Partial, Paid)
-- Shops sorted by pending balance (highest first for priority)
-- "Hide Paid Shops" setting to focus on pending collections
+### 📦 Real-Time Operations
+- **Live Order Updates**: Customers, riders, and admins receive instant notifications via Supabase Realtime
+- **Order Tracking**: Real-time status updates (Pending → Accepted → On The Way → Delivered)
+- **Pull-to-Refresh**: Manual data sync across all dashboards
+- **Offline-First**: Local AsyncStorage with cloud sync when online
 
-### 👥 Seller Performance & Analytics
-- Track daily sales performance by individual sellers
-- **Historical Data**: Browse previous days' sales with date navigation
-- Detailed analytics showing delivery volume and pending collections per seller
-- Real-time data synchronization across all dashboard tiles
+### 🛍️ Shopping Experience
+- **Category Filtering**: Miraa, Smoke, Munchies with visual icons
+- **Quick Reorder**: "Run It Back" feature for past orders
+- **Guest Mode**: Browse and order without creating an account
+- **Delivery Details**: Name, phone, location for each order
 
-### 🎨 Premium User Experience
-- **Interactive Dashboard**: Modern swiped cards for today's sales overview and seller performance
-- **Sticky Headers**: Important information stays visible while scrolling
-- **Smart UI**: Context-aware greetings with Sun/Moon icons based on time of day
-- **Personalization**: Customize your business name and profile picture
-- **Floating Action Button (FAB)**: Bouncy, vibrant orange FAB with spring animation
-- **Smooth Bottom Sheets**: Native-feeling slide-up forms for fluid interaction
-- **Rounded Tab Bar**: Premium floating tab bar with rounded corners
-- **Dark Mode Toggle**: Switch between light and dark themes (UI ready)
-- **Toast Notifications**: Non-blocking feedback for all actions
+### 🏍️ Rider Features
+- **Duty Management**: Go online/offline, view numbered active duties
+- **Fee Proposals**: Suggest delivery fees with admin approval
+- **Earnings Tracking**: Today's pay and completed runs
+- **Contact Integration**: Call customers directly from order details
+
+### 👑 Admin Controls
+- **Inventory Management**: Add/edit products, stock levels, pricing
+- **Rider Management**: Add riders, set PINs, track performance
+- **User Moderation**: Search and ban problematic accounts
+- **Revenue Dashboard**: Total sales, active orders, rider stats
+
+## 🎨 Premium UI/UX
+
+- **Dark Mode Optimized**: Eye-friendly color palette
+- **Haptic Feedback**: Tactile responses for all interactions
+- **Skeleton Loaders**: Smooth loading states
+- **Numbered Duties**: Visual priority for rider assignments
+- **Color Signals**: Orange/Red highlights for role detection (no intrusive alerts)
+- **Floating Action Buttons**: Quick access to critical functions
 
 ## 🛠 Tech Stack
 
 - **Framework**: [Expo](https://expo.dev/) (React Native)
-- **Navigation**: [Expo Router](https://docs.expo.dev/router/introduction/) (file-based routing)
-- **State Management**: Custom Context API with [AsyncStorage](https://react-native-async-storage.github.io/async-storage/) for offline persistence
-- **Icons**: [Lucide React Native](https://lucide.dev/guide/packages/lucide-react-native)
-- **Haptics**: [Expo Haptics](https://docs.expo.dev/versions/latest/sdk/haptics/) for tactile feedback
-- **Styling**: Vanilla React Native StyleSheet with custom color palette
-- **Animations**: Native `Animated` API with spring physics
+- **Backend**: [Supabase](https://supabase.com/) (PostgreSQL + Realtime)
+- **State Management**: Context API + AsyncStorage
+- **Navigation**: [Expo Router](https://docs.expo.dev/router/introduction/)
+- **Icons**: [@expo/vector-icons](https://icons.expo.fyi/), [Lucide React Native](https://lucide.dev/)
+- **UI**: Expo Blur, Linear Gradient, Image Picker
+- **Haptics**: [Expo Haptics](https://docs.expo.dev/versions/latest/sdk/haptics/)
 
-## 📱 User Interaction Flow
+## 📱 Database Schema
 
-1. **Dashboard Home**: Get a bird's-eye view of your business. Swipe through today's sales and seller summaries. Sticky greeting stays visible while scrolling.
-2. **Record a Delivery**: Tap the floating orange `+` button to pull up the delivery sheet. Select the seller, the shop (or quick-add a new one), and the items. Mark it as paid or enter a partial amount.
-3. **Manage Shops**: Switch to the **Shops** tab to see who owes what. Use filters to find unpaid or partial payments. Tap any shop to record a quick payment.
-4. **Inventory Control**: Keep your items in stock. Edit item names, prices, and set alert thresholds.
-5. **Analytics**: View detailed sales performance by date. Navigate to previous days to see historical records.
-6. **Personal Settings**: Upload your profile picture, set your business name, toggle dark mode, and manage shops/sellers/inventory.
+### Tables
+- **`users`**: Customer accounts (phone, name, avatar, is_banned)
+- **`riders`**: Delivery personnel (phone, PIN, status, rating, orders_completed)
+- **`products`**: Inventory items (name, price, category, in_stock, is_popular)
+- **`orders`**: Delivery orders (items, total_amount, status, delivery_details, rider_id)
 
-## 💾 Local-First Architecture (v1)
-
-Eddu v1 is designed to work flawlessly in any environment. All data is saved directly to your device's storage using AsyncStorage, ensuring that you never lose a record even when the network is unstable.
-
-### Data Persistence
-- Shops, sellers, deliveries, inventory, and settings stored locally
-- Instant data access with no network dependency
-- Automatic data loading on app startup
-
-## 🔮 Roadmap (v2)
-
-### Supabase Integration
-- Cloud database for cross-device sync
-- Admin dashboard for profile creation
-- Multi-user support with role-based access
-- Real-time sync across devices
-- Backup and restore functionality
-
-
-### Enhanced Features
-- **STK Push Integration**: Automatic payment requests to shops' unpaid phone numbers for easier collection tracking
-- PDF/Export reports
-- Monthly/Weekly analytics summaries
-- Push notifications for low stock alerts
-- Custom inventory categories
-- Delivery route optimization
-
----
+### Real-Time Notifications
+- **Customers**: Notified when orders are accepted, on the way, or delivered
+- **Riders**: Notified when assigned a new duty
+- **Admins**: Notified of fee proposals and new orders
 
 ## 🏃 Getting Started
 
 ```bash
 # Install dependencies
 npm install
+
+# Configure Supabase
+# Create .env and add:
+# EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 
 # Start development server
 npx expo start
@@ -97,16 +85,94 @@ npx expo start
 npx expo start --android  # or --ios
 ```
 
-## 📦 Building
+## 🗃️ Database Setup
+
+Run the following SQL in your Supabase SQL editor:
+
+```sql
+-- Users table
+CREATE TABLE public.users (
+  id text PRIMARY KEY,
+  phone text UNIQUE NOT NULL,
+  name text,
+  avatar text,
+  is_guest boolean DEFAULT false,
+  is_banned boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Riders table
+CREATE TABLE public.riders (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  phone text NOT NULL,
+  pin text NOT NULL,
+  status text DEFAULT 'Available',
+  rating numeric DEFAULT 0.0,
+  status_summary text,
+  orders_completed integer DEFAULT 0,
+  avatar text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Products table
+CREATE TABLE public.products (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  price integer NOT NULL,
+  category text NOT NULL,
+  description text,
+  is_popular boolean DEFAULT false,
+  in_stock boolean DEFAULT true,
+  image text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Orders table
+CREATE TABLE public.orders (
+  id text PRIMARY KEY,
+  user_id text REFERENCES users(id),
+  rider_id text REFERENCES riders(id),
+  items jsonb NOT NULL,
+  total_amount integer NOT NULL,
+  status text NOT NULL,
+  delivery_details jsonb,
+  delivery_fee integer,
+  delivery_estimate text,
+  payment_method text,
+  fee_suggested boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Enable Realtime for orders
+ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+```
+
+## 📦 Building APK
 
 ```bash
-# Build for Android
+# Build Android APK
 eas build --platform android
 
-# Build for iOS
-eas build --platform ios
+# Check build status
+eas build:list
 ```
+
+## 🔐 Default Login
+
+- **Admin**: Any phone + PIN `0000`
+- **Rider**: Rider phone number + their assigned PIN
+- **User**: Any phone (no PIN required)
+
+## 🎯 User Flow
+
+1. **Onboarding**: Enter phone → Auto-detect role (color signal)
+2. **Shopping**: Browse products → Add to cart → Checkout
+3. **Delivery**: Rider receives assignment → Picks up → Delivers
+4. **Tracking**: Customer sees real-time status updates
+5. **Admin**: Monitors all operations from dashboard
 
 ---
 
-*Developed with ❤️ by the Eddu Team*
+**Version**: 4.2.0 (Mayhem Edition)  
+**Developed with** ❤️ **and vibes** 🔥

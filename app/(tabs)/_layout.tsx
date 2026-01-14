@@ -1,80 +1,72 @@
-import { Tabs, usePathname } from "expo-router";
-import { Home, Store, Package, User } from "lucide-react-native";
+import { Tabs } from "expo-router";
+import { Home, Package, User } from "lucide-react-native";
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Text, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { useApp } from "@/contexts/AppContext";
-import FloatingActionButton from "@/components/FloatingActionButton";
 
 export default function TabLayout() {
-    const { colors: Colors } = useApp();
+    const { colors: Colors, activeRole, orders, currentRider } = useApp();
     const insets = useSafeAreaInsets();
-    const pathname = usePathname();
 
-    // Show FAB only on Dashboard and Shops
-    const isDashboard = pathname === "/" || pathname === "/index" || pathname.includes("index");
-    const isShops = pathname.includes("shops");
-    const showFab = isDashboard || isShops;
+    // Calculate badge count - ONLY for Admin pending orders
+    const pendingCount = orders.filter(o => o.status === "Pending").length;
+
+    // Badge only shows for Admin role with pending orders
+    const badgeCount = activeRole === "ADMIN" ? pendingCount : 0;
 
     return (
         <View style={styles.container}>
             <Tabs
                 screenOptions={{
-                    tabBarActiveTintColor: Colors.primary,
-                    tabBarInactiveTintColor: Colors.textLight,
+                    tabBarActiveTintColor: Colors.tabBarActive,
+                    tabBarInactiveTintColor: Colors.tabBarInactive,
                     headerShown: false,
                     tabBarStyle: {
                         backgroundColor: Colors.card,
                         borderTopColor: Colors.border,
-                        borderTopWidth: 1,
-                        borderTopLeftRadius: 20,
-                        borderTopRightRadius: 20,
-                        height: 60 + (insets.bottom || 0),
-                        paddingBottom: Math.max(8, insets.bottom),
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: -4 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 8,
-                        elevation: 10,
+                        borderTopWidth: 0,
+                        height: 52 + (insets.bottom > 0 ? insets.bottom - 10 : 0),
+                        paddingBottom: insets.bottom > 0 ? insets.bottom - 10 : 0,
                     },
                 }}
             >
                 <Tabs.Screen
                     name="index"
                     options={{
-                        title: "Dashboard",
+                        title: activeRole === "USER" ? "Mayhem" : activeRole === "RIDER" ? "Duty" : "Overview",
                         tabBarIcon: ({ color }) => <Home size={24} color={color} />,
                     }}
                 />
                 <Tabs.Screen
-                    name="shops"
+                    name="orders"
                     options={{
-                        title: "Shops",
-                        tabBarIcon: ({ color }) => <Store size={24} color={color} />,
-                    }}
-                />
-                <Tabs.Screen
-                    name="inventory"
-                    options={{
-                        title: "Inventory",
-                        tabBarIcon: ({ color }) => <Package size={24} color={color} />,
+                        title: activeRole === "USER" ? "My Stash" : activeRole === "RIDER" ? "Tasks" : "Control",
+                        href: activeRole === "RIDER" ? null : undefined, // Hide for riders
+                        tabBarIcon: ({ color }) => (
+                            <View>
+                                <Package size={24} color={color} />
+                                {badgeCount > 0 && (
+                                    <View style={styles.badge}>
+                                        <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ),
                     }}
                 />
                 <Tabs.Screen
                     name="profile"
                     options={{
-                        title: "Profile",
+                        title: activeRole === "USER" ? "Fam" : activeRole === "RIDER" ? "Ops" : "God Mode",
                         tabBarIcon: ({ color }) => <User size={24} color={color} />,
                     }}
                 />
-            </Tabs>
 
-            {showFab && <FloatingActionButton />}
+                {/* Hide old routes */}
+                <Tabs.Screen name="shops" options={{ href: null }} />
+
+            </Tabs>
         </View>
     );
 }
@@ -82,5 +74,23 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: "#000",
+    },
+    badge: {
+        position: 'absolute',
+        top: -6,
+        right: -10,
+        backgroundColor: '#FF3B30',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    badgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

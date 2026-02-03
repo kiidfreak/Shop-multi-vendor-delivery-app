@@ -64,20 +64,65 @@ Eddu v1 is designed to work flawlessly in any environment. All data is saved dir
 - Instant data access with no network dependency
 - Automatic data loading on app startup
 
-## 🔮 Roadmap (v2)
+## 🗺️ 3-Month Roadmap: Eddu → Biashara Core
 
-### Supabase Integration
+### Week 1: Bug Fixes & Polish ✅
+- [x] Custom item creation during delivery
+- [x] Enhanced carousel with daily inventory + profit calculations
+- [x] Keyboard visibility fixes on all forms
+- [ ] Shop payment reminder system (in progress)
+
+### Month 1-2: Feature Enhancements 🚀
+- **Offline-First Optimization**
+  - Improve AsyncStorage performance
+  - Add data export/import for backups
+  - Enhanced error handling and recovery
+- **Business Intelligence**
+  - Weekly/monthly analytics summaries
+  - Seller performance comparisons
+  - Inventory trend analysis
+- **Payment Workflows**
+  - Payment history tracking per shop
+  - Flexible payment schedules
+  - Automated payment reminders
+
+### Month 2-3: Biashara Core Extraction 🏗️
+*Transforming Eddu's proven patterns into reusable infrastructure*
+
+**Extract Core Modules:**
+1. **Reputation Engine** - Portable reputation scoring across apps
+2. **Offline-First Sync** - Local storage + eventual consistency patterns
+3. **Payment Orchestration** - M-Pesa integration + ledger management
+4. **Identity Layer** - User profiles that work across multiple apps
+
+**Goal:** Eddu becomes the first app built on "Biashara Core" - proving the platform works in production before scaling to mama mbogas, chamas, and boda cooperatives.
+
+---
+
+## 🔮 Future Vision: Biashara Ecosystem
+
+Once Biashara Core is stable (Month 3+), we'll launch specialized apps that share the same infrastructure:
+
+- **Sokoni** - Marketplace for mama mbogas (bulk buying, inventory sharing)
+- **Chama** - Savings groups with automated ledgers
+- **Boda Co-op** - Rider job sharing without platform fees
+- **WhatsApp Bot** - Bring Biashara features to existing groups
+
+All apps share: identity, reputation, payments, offline sync.
+*"The operating system for African informal business."*
+
+---
+
+## 🚀 Supabase Integration (v3+)
 - Cloud database for cross-device sync
 - Admin dashboard for profile creation
 - Multi-user support with role-based access
 - Real-time sync across devices
 - Backup and restore functionality
 
-
 ### Enhanced Features
-- **STK Push Integration**: Automatic payment requests to shops' unpaid phone numbers for easier collection tracking
+- **STK Push Integration**: Automatic payment requests to shops' unpaid phone numbers
 - PDF/Export reports
-- Monthly/Weekly analytics summaries
 - Push notifications for low stock alerts
 - Custom inventory categories
 - Delivery route optimization

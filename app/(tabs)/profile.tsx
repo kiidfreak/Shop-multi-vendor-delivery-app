@@ -1,11 +1,12 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3, Moon } from "lucide-react-native";
-import React, { useState, useEffect } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable, Switch, Image } from "react-native";
+import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3, Moon, Package } from "lucide-react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable, Switch, Image, KeyboardAvoidingView, Platform, RefreshControl, TouchableWithoutFeedback } from "react-native";
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
+import Toast from "react-native-toast-message";
 
 import type { Shop, Seller, InventoryItem } from "@/types";
 
@@ -33,10 +34,18 @@ export default function ProfileScreen() {
     const [itemPrice, setItemPrice] = useState("");
     const [itemThreshold, setItemThreshold] = useState("");
     const [itemName, setItemName] = useState("");
+    const [itemUnit, setItemUnit] = useState("pieces");
 
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [tempUserName, setTempUserName] = useState(settings.userName);
     const [tempBusinessName, setTempBusinessName] = useState(settings.businessName);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setTimeout(() => setRefreshing(false), 800);
+    }, []);
 
     const openShopModal = (shop?: Shop) => {
         if (shop) {
@@ -68,11 +77,20 @@ export default function ProfileScreen() {
         setShowSellerModal(true);
     };
 
-    const openPriceModal = (item: InventoryItem) => {
-        setEditingItem(item);
-        setItemName(item.name);
-        setItemPrice(item.price.toString());
-        setItemThreshold(item.lowStockThreshold.toString());
+    const openPriceModal = (item?: InventoryItem) => {
+        if (item) {
+            setEditingItem(item);
+            setItemName(item.name);
+            setItemPrice(item.price.toString());
+            setItemThreshold(item.lowStockThreshold.toString());
+            setItemUnit(item.unit || "pieces");
+        } else {
+            setEditingItem(null);
+            setItemName("");
+            setItemPrice("");
+            setItemThreshold(settings.defaultLowStockThreshold?.toString() || "10");
+            setItemUnit("pieces");
+        }
         setShowPriceModal(true);
     };
 
@@ -86,7 +104,11 @@ export default function ProfileScreen() {
 
     const handleSaveShop = async () => {
         if (!shopName || !shopOwner || !shopLocation) {
-            Alert.alert("Error", "Please fill all required fields");
+            Toast.show({
+                type: "error",
+                text1: "Missing fields",
+                text2: "Please fill all required fields",
+            });
             return;
         }
 
@@ -110,11 +132,20 @@ export default function ProfileScreen() {
             await saveShops([...shops, newShop]);
         }
         setShowShopModal(false);
+        Toast.show({
+            type: "success",
+            text1: editingShop ? "Shop Updated! 🏪" : "Shop Registered! ✨",
+            text2: `${shopName} has been saved successfully.`,
+        });
     };
 
     const handleSaveSeller = async () => {
         if (!sellerName) {
-            Alert.alert("Error", "Please enter seller name");
+            Toast.show({
+                type: "error",
+                text1: "Missing name",
+                text2: "Please enter seller name",
+            });
             return;
         }
 
@@ -134,11 +165,20 @@ export default function ProfileScreen() {
             await saveSellers([...sellers, newSeller]);
         }
         setShowSellerModal(false);
+        Toast.show({
+            type: "success",
+            text1: editingSeller ? "Seller Updated! 👤" : "Seller Added! ✨",
+            text2: `${sellerName} is ready to work.`,
+        });
     };
 
     const handleSavePrice = async () => {
-        if (!editingItem || !itemPrice || !itemThreshold || !itemName) {
-            Alert.alert("Error", "Please fill all fields");
+        if (!itemName || !itemPrice || !itemThreshold) {
+            Toast.show({
+                type: "error",
+                text1: "Missing fields",
+                text2: "Please fill all fields",
+            });
             return;
         }
 
@@ -146,16 +186,38 @@ export default function ProfileScreen() {
         const threshold = parseInt(itemThreshold);
 
         if (isNaN(price) || isNaN(threshold)) {
-            Alert.alert("Error", "Please enter valid numbers");
+            Toast.show({
+                type: "error",
+                text1: "Invalid input",
+                text2: "Please enter valid numbers",
+            });
             return;
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const updatedInventory = inventory.map((item) =>
-            item.id === editingItem.id ? { ...item, name: itemName, price, lowStockThreshold: threshold } : item
-        );
-        await saveInventory(updatedInventory);
+
+        if (editingItem) {
+            const updatedInventory = inventory.map((item) =>
+                item.id === editingItem.id ? { ...item, name: itemName, price, lowStockThreshold: threshold, unit: itemUnit } : item
+            );
+            await saveInventory(updatedInventory);
+        } else {
+            const newItem: InventoryItem = {
+                id: Date.now().toString(),
+                name: itemName,
+                price,
+                currentStock: 0,
+                unit: itemUnit,
+                lowStockThreshold: threshold,
+            };
+            await saveInventory([...inventory, newItem]);
+        }
         setShowPriceModal(false);
+        Toast.show({
+            type: "success",
+            text1: editingItem ? "Item Updated! 📦" : "Item Created! ✨",
+            text2: `${itemName} is now ready for use.`,
+        });
     };
 
     const handleDeleteShop = async (shopId: string) => {
@@ -209,13 +271,22 @@ export default function ProfileScreen() {
 
     const handleSaveProfile = async () => {
         if (!tempUserName || !tempBusinessName) {
-            Alert.alert("Error", "Please fill all fields");
+            Toast.show({
+                type: "error",
+                text1: "Missing fields",
+                text2: "Please fill all profile fields",
+            });
             return;
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await saveSettings({ ...settings, userName: tempUserName, businessName: tempBusinessName });
         setShowProfileModal(false);
+        Toast.show({
+            type: "info",
+            text1: "Profile Updated! 👋",
+            text2: `Preferences saved for ${tempBusinessName}.`,
+        });
     };
 
     return (
@@ -256,6 +327,15 @@ export default function ProfileScreen() {
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={Colors.primary}
+                        colors={[Colors.primary]}
+                        progressBackgroundColor={Colors.card}
+                    />
+                }
             >
                 <Pressable
                     style={({ pressed }) => [styles.analyticsCard, pressed && styles.cardPressed]}
@@ -347,6 +427,10 @@ export default function ProfileScreen() {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Item Prices & Thresholds</Text>
+                        <TouchableOpacity onPress={() => openPriceModal()} style={styles.addButtonMini}>
+                            <Plus size={18} color={Colors.primary} />
+                            <Text style={styles.addButtonText}>Add</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {inventory.map((item) => (
@@ -403,98 +487,161 @@ export default function ProfileScreen() {
                             thumbColor={Colors.card}
                         />
                     </View>
+
+                    <View style={styles.settingDivider} />
+
+                    <View style={styles.settingItem}>
+                        <Package size={20} color={Colors.primary} />
+                        <View style={styles.settingContent}>
+                            <Text style={styles.settingTitle}>Daily Stock Management</Text>
+                            <Text style={styles.settingSubtitle}>Enable profit tracking via daily stock</Text>
+                        </View>
+                        <Switch
+                            value={settings.enableDailyStock}
+                            onValueChange={async (value) => {
+                                await saveSettings({ ...settings, enableDailyStock: value });
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            }}
+                            trackColor={{ false: Colors.border, true: Colors.primary }}
+                            thumbColor={Colors.card}
+                        />
+                    </View>
                 </View>
             </ScrollView>
 
             <Modal visible={showShopModal} animationType="slide" transparent={true} onRequestClose={() => setShowShopModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{editingShop ? "Edit Shop" : "Add Shop"}</Text>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableWithoutFeedback onPress={() => setShowShopModal(false)}>
+                        <View style={styles.modalOverlay}>
+                            <TouchableWithoutFeedback onPress={() => { }}>
+                                <View style={styles.modalContent}>
+                                    <Text style={styles.modalTitle}>{editingShop ? "Edit Shop" : "Add Shop"}</Text>
 
-                        <TextInput style={styles.input} placeholder="Shop Name *" value={shopName} onChangeText={setShopName} />
-                        <TextInput style={styles.input} placeholder="Owner Name *" value={shopOwner} onChangeText={setShopOwner} />
-                        <TextInput style={styles.input} placeholder="Location *" value={shopLocation} onChangeText={setShopLocation} />
-                        <TextInput style={styles.input} placeholder="Phone (Optional)" value={shopPhone} onChangeText={setShopPhone} keyboardType="phone-pad" />
+                                    <TextInput style={styles.input} placeholder="Shop Name *" value={shopName} onChangeText={setShopName} />
+                                    <TextInput style={styles.input} placeholder="Owner Name *" value={shopOwner} onChangeText={setShopOwner} />
+                                    <TextInput style={styles.input} placeholder="Location *" value={shopLocation} onChangeText={setShopLocation} />
+                                    <TextInput style={styles.input} placeholder="Phone (Optional)" value={shopPhone} onChangeText={setShopPhone} keyboardType="phone-pad" />
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowShopModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveShop}>
-                                <Text style={styles.modalSaveText}>Save</Text>
-                            </TouchableOpacity>
+                                    <View style={styles.modalButtons}>
+                                        <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowShopModal(false)}>
+                                            <Text style={styles.modalCancelText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveShop}>
+                                            <Text style={styles.modalSaveText}>Save</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
                         </View>
-                    </View>
-                </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
             </Modal>
 
             <Modal visible={showSellerModal} animationType="slide" transparent={true} onRequestClose={() => setShowSellerModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>{editingSeller ? "Edit Seller" : "Add Seller"}</Text>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableWithoutFeedback onPress={() => setShowSellerModal(false)}>
+                        <View style={styles.modalOverlay}>
+                            <TouchableWithoutFeedback onPress={() => { }}>
+                                <View style={styles.modalContent}>
+                                    <Text style={styles.modalTitle}>{editingSeller ? "Edit Seller" : "Add Seller"}</Text>
 
-                        <TextInput style={styles.input} placeholder="Seller Name *" value={sellerName} onChangeText={setSellerName} />
-                        <TextInput style={styles.input} placeholder="Phone (Optional)" value={sellerPhone} onChangeText={setSellerPhone} keyboardType="phone-pad" />
+                                    <TextInput style={styles.input} placeholder="Seller Name *" value={sellerName} onChangeText={setSellerName} />
+                                    <TextInput style={styles.input} placeholder="Phone (Optional)" value={sellerPhone} onChangeText={setSellerPhone} keyboardType="phone-pad" />
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowSellerModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveSeller}>
-                                <Text style={styles.modalSaveText}>Save</Text>
-                            </TouchableOpacity>
+                                    <View style={styles.modalButtons}>
+                                        <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowSellerModal(false)}>
+                                            <Text style={styles.modalCancelText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveSeller}>
+                                            <Text style={styles.modalSaveText}>Save</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
                         </View>
-                    </View>
-                </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
             </Modal>
 
             <Modal visible={showPriceModal} animationType="slide" transparent={true} onRequestClose={() => setShowPriceModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit {editingItem?.name}</Text>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableWithoutFeedback onPress={() => setShowPriceModal(false)}>
+                        <View style={styles.modalOverlay}>
+                            <TouchableWithoutFeedback onPress={() => { }}>
+                                <View style={styles.modalContent}>
+                                    <Text style={styles.modalTitle}>{editingItem ? `Edit ${editingItem.name}` : "Add New Item"}</Text>
 
-                        <Text style={styles.inputLabel}>Item Name</Text>
-                        <TextInput style={styles.input} placeholder="Item Name" value={itemName} onChangeText={setItemName} />
+                                    <Text style={styles.inputLabel}>Item Name</Text>
+                                    <TextInput style={styles.input} placeholder="e.g. Mandazi, Chapati" value={itemName} onChangeText={setItemName} />
 
-                        <Text style={styles.inputLabel}>Price (KES)</Text>
-                        <TextInput style={styles.input} placeholder="Price" value={itemPrice} onChangeText={setItemPrice} keyboardType="numeric" />
+                                    <View style={styles.inputRow}>
+                                        <View style={{ flex: 2 }}>
+                                            <Text style={styles.inputLabel}>Price (KES)</Text>
+                                            <TextInput style={styles.input} placeholder="50" value={itemPrice} onChangeText={setItemPrice} keyboardType="numeric" />
+                                        </View>
+                                        <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <Text style={styles.inputLabel}>Unit</Text>
+                                            <TextInput style={styles.input} placeholder="pcs/cup" value={itemUnit} onChangeText={setItemUnit} autoCapitalize="none" />
+                                        </View>
+                                    </View>
 
-                        <Text style={styles.inputLabel}>Low Stock Alert Threshold</Text>
-                        <TextInput style={styles.input} placeholder="Threshold" value={itemThreshold} onChangeText={setItemThreshold} keyboardType="numeric" />
+                                    <Text style={styles.inputLabel}>Low Stock Alert Threshold</Text>
+                                    <TextInput style={styles.input} placeholder="10" value={itemThreshold} onChangeText={setItemThreshold} keyboardType="numeric" />
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowPriceModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSavePrice}>
-                                <Text style={styles.modalSaveText}>Save</Text>
-                            </TouchableOpacity>
+                                    <View style={styles.modalButtons}>
+                                        <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowPriceModal(false)}>
+                                            <Text style={styles.modalCancelText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalSaveButton} onPress={handleSavePrice}>
+                                            <Text style={styles.modalSaveText}>Save</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
                         </View>
-                    </View>
-                </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
             </Modal>
 
             <Modal visible={showProfileModal} animationType="slide" transparent={true} onRequestClose={() => setShowProfileModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit Profile</Text>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableWithoutFeedback onPress={() => setShowProfileModal(false)}>
+                        <View style={styles.modalOverlay}>
+                            <TouchableWithoutFeedback onPress={() => { }}>
+                                <View style={styles.modalContent}>
+                                    <Text style={styles.modalTitle}>Edit Profile</Text>
 
-                        <Text style={styles.inputLabel}>Your Name</Text>
-                        <TextInput style={styles.input} placeholder="Your Name" value={tempUserName} onChangeText={setTempUserName} />
+                                    <Text style={styles.inputLabel}>Your Name</Text>
+                                    <TextInput style={styles.input} placeholder="Your Name" value={tempUserName} onChangeText={setTempUserName} />
 
-                        <Text style={styles.inputLabel}>Business Name</Text>
-                        <TextInput style={styles.input} placeholder="Business Name" value={tempBusinessName} onChangeText={setTempBusinessName} />
+                                    <Text style={styles.inputLabel}>Business Name</Text>
+                                    <TextInput style={styles.input} placeholder="Business Name" value={tempBusinessName} onChangeText={setTempBusinessName} />
 
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowProfileModal(false)}>
-                                <Text style={styles.modalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveProfile}>
-                                <Text style={styles.modalSaveText}>Save</Text>
-                            </TouchableOpacity>
+                                    <View style={styles.modalButtons}>
+                                        <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowProfileModal(false)}>
+                                            <Text style={styles.modalCancelText}>Cancel</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveProfile}>
+                                            <Text style={styles.modalSaveText}>Save</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
                         </View>
-                    </View>
-                </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
             </Modal>
         </SafeAreaView>
     );
@@ -514,7 +661,10 @@ const createStyles = (Colors: any) => StyleSheet.create({
         paddingTop: 10,
         alignItems: "center",
         backgroundColor: Colors.background,
-        marginBottom: 10,
+    },
+    inputRow: {
+        flexDirection: "row",
+        alignItems: "center",
     },
     profileIconContainer: {
         width: 100,
@@ -691,7 +841,7 @@ const createStyles = (Colors: any) => StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backgroundColor: "rgba(0, 0, 0, 0.7)",
         justifyContent: "center",
         padding: 20,
     },

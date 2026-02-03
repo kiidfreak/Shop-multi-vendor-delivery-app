@@ -2,8 +2,7 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import { Plus, X, Minus, Check } from "lucide-react-native";
-import React, { useState, useRef } from "react";
-import ConfettiCannon from "react-native-confetti-cannon";
+import React, { useState } from "react";
 import {
     Platform,
     StyleSheet,
@@ -15,6 +14,7 @@ import {
     TextInput,
     Alert,
     Pressable,
+    KeyboardAvoidingView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
@@ -34,7 +34,12 @@ export default function DeliveryFormModal() {
     const [paidAmount, setPaidAmount] = useState("");
 
     const [searchQuery, setSearchQuery] = useState("");
-    const confettiRef = useRef<any>(null);
+
+    // Custom item state
+    const [showCustomItem, setShowCustomItem] = useState(false);
+    const [customItemName, setCustomItemName] = useState("");
+    const [customItemPrice, setCustomItemPrice] = useState("");
+    const [customItemQty, setCustomItemQty] = useState("1");
 
     const handleAddItem = (inventoryItemId: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -53,7 +58,7 @@ export default function DeliveryFormModal() {
         } else {
             setItems([
                 ...items,
-                { inventoryItemId, quantity: 1, price: inventoryItem.price },
+                { inventoryItemId, quantity: 1, price: inventoryItem.price, name: inventoryItem.name },
             ]);
         }
     };
@@ -69,6 +74,41 @@ export default function DeliveryFormModal() {
                 )
                 .filter((i) => i.quantity > 0)
         );
+    };
+
+    // Add custom one-off item
+    const handleAddCustomItem = () => {
+        if (!customItemName.trim() || !customItemPrice.trim()) {
+            Toast.show({
+                type: "error",
+                text1: "Missing Info",
+                text2: "Enter item name and price",
+            });
+            return;
+        }
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const customId = `custom_${Date.now()}`;
+        const price = parseFloat(customItemPrice) || 0;
+        const qty = parseInt(customItemQty) || 1;
+
+        setItems([
+            ...items,
+            { inventoryItemId: customId, quantity: qty, price: price, name: customItemName }
+        ]);
+
+        // Reset custom item form
+        setCustomItemName("");
+        setCustomItemPrice("");
+        setCustomItemQty("1");
+        setShowCustomItem(false);
+
+        Toast.show({
+            type: "success",
+            text1: "Custom Item Added! ✨",
+            text2: `${customItemName} x${qty} @ KES ${price}`,
+            visibilityTime: 2000,
+        });
     };
 
     const filteredShops = React.useMemo(() => {
@@ -149,20 +189,15 @@ export default function DeliveryFormModal() {
 
         await addDelivery(delivery);
 
-        if (isPaid) {
-            confettiRef.current?.start();
-        }
-
         Toast.show({
             type: "success",
             text1: "Delivery Registered! 🚚",
             text2: `Total: KES ${totalAmount.toLocaleString()}`,
-            visibilityTime: 3000,
+            visibilityTime: 2000,
         });
 
-        setTimeout(() => {
-            router.back();
-        }, 1500);
+        // Auto-close modal immediately
+        router.back();
     };
 
     return (
@@ -170,7 +205,11 @@ export default function DeliveryFormModal() {
             <TouchableWithoutFeedback onPress={() => router.back()}>
                 <View style={styles.backdrop} />
             </TouchableWithoutFeedback>
-            <View style={styles.overlay}>
+            <KeyboardAvoidingView
+                style={styles.overlay}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
                 <View style={[styles.modalContent, { paddingBottom: Math.max(20, insets.bottom + 10) }]}>
                     <View style={styles.dragHandleContainer}>
                         <View style={styles.dragHandle} />
@@ -323,6 +362,92 @@ export default function DeliveryFormModal() {
                                     </View>
                                 );
                             })}
+
+                            {/* Custom Item Section */}
+                            {!showCustomItem ? (
+                                <Pressable
+                                    style={({ pressed }) => [
+                                        styles.addCustomButton,
+                                        pressed && styles.addCustomButtonPressed,
+                                    ]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setShowCustomItem(true);
+                                    }}
+                                >
+                                    <Plus size={18} color={Colors.primary} />
+                                    <Text style={styles.addCustomText}>Add Custom Item</Text>
+                                </Pressable>
+                            ) : (
+                                <View style={styles.customItemForm}>
+                                    <Text style={styles.customItemLabel}>Custom Item</Text>
+                                    <TextInput
+                                        style={styles.customItemInput}
+                                        placeholder="Item name (e.g. Birthday Cake)"
+                                        placeholderTextColor={Colors.mutedText}
+                                        value={customItemName}
+                                        onChangeText={setCustomItemName}
+                                    />
+                                    <View style={styles.customItemRow}>
+                                        <TextInput
+                                            style={[styles.customItemInput, { flex: 1 }]}
+                                            placeholder="Price (KES)"
+                                            placeholderTextColor={Colors.mutedText}
+                                            keyboardType="numeric"
+                                            value={customItemPrice}
+                                            onChangeText={setCustomItemPrice}
+                                        />
+                                        <TextInput
+                                            style={[styles.customItemInput, { width: 60, marginLeft: 8 }]}
+                                            placeholder="Qty"
+                                            placeholderTextColor={Colors.mutedText}
+                                            keyboardType="numeric"
+                                            value={customItemQty}
+                                            onChangeText={setCustomItemQty}
+                                        />
+                                    </View>
+                                    <View style={styles.customItemActions}>
+                                        <Pressable
+                                            style={styles.customItemCancel}
+                                            onPress={() => {
+                                                setShowCustomItem(false);
+                                                setCustomItemName("");
+                                                setCustomItemPrice("");
+                                                setCustomItemQty("1");
+                                            }}
+                                        >
+                                            <Text style={styles.customItemCancelText}>Cancel</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.customItemAdd}
+                                            onPress={handleAddCustomItem}
+                                        >
+                                            <Text style={styles.customItemAddText}>Add Item</Text>
+                                        </Pressable>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Show added custom items */}
+                            {items.filter(i => i.inventoryItemId.startsWith('custom_')).map((item, idx) => (
+                                <View key={item.inventoryItemId} style={styles.customItemDisplay}>
+                                    <View style={styles.customItemInfo}>
+                                        <Text style={styles.customItemTag}>CUSTOM</Text>
+                                        <Text style={styles.inventoryItemName}>
+                                            {item.quantity}x @ KES {item.price}
+                                        </Text>
+                                    </View>
+                                    <Pressable
+                                        style={styles.removeCustomButton}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            setItems(items.filter(i => i.inventoryItemId !== item.inventoryItemId));
+                                        }}
+                                    >
+                                        <Minus size={16} color={Colors.danger} />
+                                    </Pressable>
+                                </View>
+                            ))}
                         </View>
 
                         <View style={styles.section}>
@@ -395,15 +520,8 @@ export default function DeliveryFormModal() {
                         <Text style={styles.submitButtonText}>Record Delivery</Text>
                     </Pressable>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
 
-            <ConfettiCannon
-                ref={confettiRef}
-                count={50}
-                origin={{ x: -10, y: 0 }}
-                autoStart={false}
-                fadeOut={true}
-            />
             <StatusBar style={Platform.OS === "ios" ? "light" : "auto"} />
         </>
     );
@@ -412,7 +530,7 @@ export default function DeliveryFormModal() {
 const createStyles = (Colors: any) => StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: "rgba(0, 0, 0, 0.4)",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
     },
     overlay: {
         flex: 1,
@@ -718,5 +836,113 @@ const createStyles = (Colors: any) => StyleSheet.create({
         fontSize: 14,
         color: Colors.primary,
         fontWeight: "700" as const,
+    },
+    // Custom Item Styles
+    addCustomButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 14,
+        marginTop: 12,
+        borderRadius: 12,
+        backgroundColor: Colors.secondary,
+        borderWidth: 2,
+        borderColor: Colors.primary,
+        borderStyle: "dashed",
+        gap: 8,
+    },
+    addCustomButtonPressed: {
+        opacity: 0.7,
+    },
+    addCustomText: {
+        fontSize: 14,
+        color: Colors.primary,
+        fontWeight: "600" as const,
+    },
+    customItemForm: {
+        marginTop: 16,
+        padding: 16,
+        backgroundColor: Colors.secondary,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    customItemLabel: {
+        fontSize: 14,
+        fontWeight: "700" as const,
+        color: Colors.text,
+        marginBottom: 12,
+    },
+    customItemInput: {
+        backgroundColor: Colors.card,
+        borderRadius: 10,
+        padding: 12,
+        fontSize: 15,
+        color: Colors.text,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        marginBottom: 10,
+    },
+    customItemRow: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    customItemActions: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        gap: 10,
+        marginTop: 8,
+    },
+    customItemCancel: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    customItemCancelText: {
+        fontSize: 14,
+        color: Colors.mutedText,
+        fontWeight: "600" as const,
+    },
+    customItemAdd: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        backgroundColor: Colors.primary,
+        borderRadius: 8,
+    },
+    customItemAddText: {
+        fontSize: 14,
+        color: Colors.card,
+        fontWeight: "700" as const,
+    },
+    customItemDisplay: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        marginTop: 10,
+        backgroundColor: Colors.secondary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    customItemInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    customItemTag: {
+        fontSize: 10,
+        fontWeight: "800" as const,
+        color: Colors.card,
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 4,
+    },
+    removeCustomButton: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: Colors.dangerLight || Colors.secondary,
     },
 });

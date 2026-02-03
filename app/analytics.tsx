@@ -1,7 +1,7 @@
 import { Stack, router } from "expo-router";
 import { ArrowLeft, User, Store, DollarSign, TrendingUp, AlertCircle, ChevronLeft, ChevronRight, Calendar } from "lucide-react-native";
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput, Pressable } from "react-native";
+import React, { useState, useCallback } from "react";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, TextInput, Pressable, RefreshControl, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useApp } from "@/contexts/AppContext";
@@ -12,6 +12,8 @@ export default function AnalyticsScreen() {
     const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [expandedSellers, setExpandedSellers] = useState<string[]>([]);
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const analytics = getSellerAnalytics();
 
     const formatDate = (date: Date) => date.toISOString().split("T")[0];
@@ -85,21 +87,38 @@ export default function AnalyticsScreen() {
 
     const isToday = formatDate(selectedDate) === formatDate(new Date());
 
+    const toggleSellerExpanded = (sellerId: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setExpandedSellers(prev =>
+            prev.includes(sellerId)
+                ? prev.filter(id => id !== sellerId)
+                : [...prev, sellerId]
+        );
+    };
+
+    const [refreshing, setRefreshing] = useState(false);
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setTimeout(() => setRefreshing(false), 800);
+    }, []);
+
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
             <Stack.Screen
                 options={{
-                    headerShown: true,
-                    title: "Sales Analytics",
-                    headerStyle: { backgroundColor: Colors.background },
-                    headerTintColor: Colors.text,
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                            <ArrowLeft size={24} color={Colors.text} />
-                        </TouchableOpacity>
-                    ),
+                    headerShown: false,
                 }}
             />
+
+            {/* Custom Header */}
+            <View style={styles.topBar}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <ArrowLeft size={24} color={Colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.topBarTitle}>Sales Analytics</Text>
+                <View style={{ width: 40 }} />
+            </View>
 
             {/* Sticky Header */}
             <View style={styles.header}>
@@ -111,7 +130,10 @@ export default function AnalyticsScreen() {
                     <Pressable style={styles.dateArrow} onPress={goToPrevDay}>
                         <ChevronLeft size={24} color={Colors.primary} />
                     </Pressable>
-                    <Pressable style={styles.dateDisplay} onPress={goToToday}>
+                    <Pressable
+                        style={styles.dateDisplay}
+                        onPress={() => setShowDatePicker(true)}
+                    >
                         <Calendar size={16} color={Colors.primary} />
                         <Text style={styles.dateText}>{displayDate(selectedDate)}</Text>
                     </Pressable>
@@ -122,6 +144,12 @@ export default function AnalyticsScreen() {
                         <ChevronRight size={24} color={isToday ? Colors.textLight : Colors.primary} />
                     </Pressable>
                 </View>
+
+                {isToday && (
+                    <TouchableOpacity style={styles.todayBadge} onPress={goToToday}>
+                        <Text style={styles.todayBadgeText}>TODAY</Text>
+                    </TouchableOpacity>
+                )}
 
                 <View style={styles.searchContainer}>
                     <View style={styles.searchInputWrapper}>
@@ -141,6 +169,15 @@ export default function AnalyticsScreen() {
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 40 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={Colors.primary}
+                        colors={[Colors.primary]}
+                        progressBackgroundColor={Colors.card}
+                    />
+                }
             >
                 <View style={styles.statsContainer}>
                     <View style={[styles.statCard, styles.primaryCard]}>
@@ -176,7 +213,11 @@ export default function AnalyticsScreen() {
                         if (sellerDeliveries.length === 0) return null;
 
                         return (
-                            <View key={sellerId} style={styles.sellerCard}>
+                            <Pressable
+                                key={sellerId}
+                                style={styles.sellerCard}
+                                onPress={() => toggleSellerExpanded(sellerId)}
+                            >
                                 <View style={styles.sellerHeader}>
                                     <View style={styles.sellerIconContainer}>
                                         <User size={24} color={Colors.primary} />
@@ -188,44 +229,58 @@ export default function AnalyticsScreen() {
                                                 <Store size={12} color={Colors.textLight} />
                                                 <Text style={styles.statBadgeText}>{sellerDeliveries.length} deliveries</Text>
                                             </View>
+                                            <View style={[styles.statBadge, sellerPending > 0 ? styles.pendingBadge : styles.paidBadge]}>
+                                                <Text style={[styles.statBadgeText, sellerPending > 0 ? styles.pendingBadgeText : styles.paidBadgeText]}>
+                                                    {sellerPending > 0 ? `KES ${sellerPending.toLocaleString()} pending` : 'Fully paid'}
+                                                </Text>
+                                            </View>
                                         </View>
                                     </View>
-                                </View>
-
-                                <View style={styles.metricsContainer}>
-                                    <View style={styles.metricRow}>
-                                        <Text style={styles.metricLabel}>Total Sales</Text>
-                                        <Text style={styles.metricValue}>KES {sellerTotalSales.toLocaleString()}</Text>
-                                    </View>
-                                    <View style={styles.metricRow}>
-                                        <Text style={styles.metricLabel}>Paid</Text>
-                                        <Text style={[styles.metricValue, styles.successText]}>
-                                            KES {sellerTotalPaid.toLocaleString()}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.metricRow}>
-                                        <Text style={styles.metricLabel}>Pending</Text>
-                                        <Text style={[styles.metricValue, styles.errorText]}>
-                                            KES {sellerPending.toLocaleString()}
-                                        </Text>
+                                    <View style={styles.sellerTotal}>
+                                        <Text style={styles.sellerTotalAmount}>KES {sellerTotalSales.toLocaleString()}</Text>
+                                        <ChevronRight
+                                            size={20}
+                                            color={Colors.textLight}
+                                            style={{ transform: [{ rotate: expandedSellers.includes(sellerId) ? '90deg' : '0deg' }] }}
+                                        />
                                     </View>
                                 </View>
 
-                                {sellerDeliveries.length > 0 && (
+                                {expandedSellers.includes(sellerId) && sellerDeliveries.length > 0 && (
                                     <View style={styles.deliveriesSection}>
-                                        <Text style={styles.deliveriesTitle}>Deliveries</Text>
-                                        {sellerDeliveries.map((delivery) => (
-                                            <View key={delivery.id} style={styles.deliveryItem}>
-                                                <Text style={styles.deliveryTime}>{formatTime(delivery.deliveryDate)}</Text>
-                                                <Store size={14} color={Colors.textLight} />
-                                                <Text style={styles.deliveryShop}>{getShopName(delivery.shopId)}</Text>
-                                                <Text style={styles.deliveryAmount}>KES {delivery.totalAmount}</Text>
-                                                <View style={[styles.statusDot, delivery.isPaid ? styles.statusPaid : styles.statusUnpaid]} />
-                                            </View>
-                                        ))}
+                                        {sellerDeliveries.map((delivery) => {
+                                            const isPartial = (delivery.paidAmount || 0) > 0 && !delivery.isPaid;
+                                            return (
+                                                <View key={delivery.id} style={styles.deliveryItem}>
+                                                    <View style={styles.deliveryLeft}>
+                                                        <Text style={styles.deliveryTime}>{formatTime(delivery.deliveryDate)}</Text>
+                                                        <View style={[
+                                                            styles.statusDot,
+                                                            delivery.isPaid ? styles.statusPaid : (isPartial ? styles.statusPartial : styles.statusUnpaid)
+                                                        ]} />
+                                                    </View>
+                                                    <View style={styles.deliveryCenter}>
+                                                        <Text style={styles.deliveryShop} numberOfLines={1}>{getShopName(delivery.shopId)}</Text>
+                                                        {isPartial && (
+                                                            <Text style={styles.partialText}>
+                                                                Paid: KES {(delivery.paidAmount || 0).toLocaleString()}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                    <View style={styles.deliveryRight}>
+                                                        <Text style={styles.deliveryAmount}>KES {delivery.totalAmount.toLocaleString()}</Text>
+                                                        {!delivery.isPaid && isPartial && (
+                                                            <Text style={styles.remainingText}>
+                                                                Bal: KES {(delivery.totalAmount - (delivery.paidAmount || 0)).toLocaleString()}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            );
+                                        })}
                                     </View>
                                 )}
-                            </View>
+                            </Pressable>
                         );
                     })}
 
@@ -237,6 +292,48 @@ export default function AnalyticsScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Date Picker Modal */}
+            <Modal
+                visible={showDatePicker}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowDatePicker(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.calendarModalRoot}>
+                        <Text style={styles.datePickerTitle}>Select Date</Text>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {[...Array(14)].map((_, i) => {
+                                const date = new Date();
+                                date.setDate(date.getDate() - i);
+                                const isSel = formatDate(date) === formatDate(selectedDate);
+                                return (
+                                    <TouchableOpacity
+                                        key={i}
+                                        style={[styles.dateOption, isSel && styles.dateOptionSelected]}
+                                        onPress={() => {
+                                            setSelectedDate(date);
+                                            setShowDatePicker(false);
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        }}
+                                    >
+                                        <Text style={[styles.dateOptionText, isSel && styles.dateOptionTextSelected]}>
+                                            {displayDate(date)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                        <TouchableOpacity
+                            style={styles.closePickerButton}
+                            onPress={() => setShowDatePicker(false)}
+                        >
+                            <Text style={styles.closePickerButtonText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -420,15 +517,16 @@ const createStyles = (Colors: any) => StyleSheet.create({
     statBadge: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 4,
-        backgroundColor: Colors.background,
+        backgroundColor: Colors.secondary,
         paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+        gap: 4,
     },
     statBadgeText: {
-        fontSize: 11,
-        color: Colors.textLight,
+        fontSize: 10,
+        fontWeight: "600" as const,
+        color: Colors.text,
     },
     metricsContainer: {
         backgroundColor: Colors.background,
@@ -496,6 +594,113 @@ const createStyles = (Colors: any) => StyleSheet.create({
     statusUnpaid: {
         backgroundColor: Colors.error,
     },
+    statusPartial: {
+        backgroundColor: Colors.warning,
+    },
+    deliveryLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        width: 80,
+    },
+    deliveryCenter: {
+        flex: 1,
+    },
+    deliveryRight: {
+        alignItems: "flex-end",
+    },
+    partialText: {
+        fontSize: 10,
+        color: Colors.success,
+        fontWeight: "500" as const,
+    },
+    remainingText: {
+        fontSize: 10,
+        color: Colors.error,
+        fontWeight: "500" as const,
+    },
+    // Styles for collapsible cards
+    sellerTotal: {
+        alignItems: "flex-end",
+    },
+    sellerTotalAmount: {
+        fontSize: 16,
+        fontWeight: "700" as const,
+        color: Colors.text,
+        marginBottom: 2,
+    },
+    pendingBadge: {
+        backgroundColor: "#FFEBEE",
+        borderWidth: 1,
+        borderColor: "#FFCDD2",
+    },
+    paidBadge: {
+        backgroundColor: "#E8F5E9",
+        borderWidth: 1,
+        borderColor: "#C8E6C9",
+    },
+    pendingBadgeText: {
+        color: Colors.error,
+        fontWeight: "600" as const,
+    },
+    paidBadgeText: {
+        color: Colors.success,
+        fontWeight: "600" as const,
+    },
+    todayBadge: {
+        position: "absolute",
+        top: 20,
+        right: 20,
+        backgroundColor: Colors.secondary,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    todayBadgeText: {
+        fontSize: 10,
+        fontWeight: "700" as const,
+        color: Colors.primary,
+    },
+    datePickerTitle: {
+        fontSize: 20,
+        fontWeight: "700" as const,
+        color: Colors.text,
+        marginBottom: 20,
+        textAlign: "center",
+    },
+    dateOption: {
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+        alignItems: "center",
+    },
+    dateOptionSelected: {
+        backgroundColor: Colors.secondary,
+        borderRadius: 12,
+        borderBottomWidth: 0,
+    },
+    dateOptionText: {
+        fontSize: 16,
+        color: Colors.text,
+    },
+    dateOptionTextSelected: {
+        color: Colors.primary,
+        fontWeight: "700" as const,
+    },
+    closePickerButton: {
+        marginTop: 20,
+        backgroundColor: Colors.background,
+        padding: 16,
+        borderRadius: 12,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    closePickerButtonText: {
+        color: Colors.text,
+        fontSize: 16,
+        fontWeight: "700" as const,
+    },
     emptyState: {
         alignItems: "center",
         justifyContent: "center",
@@ -514,5 +719,36 @@ const createStyles = (Colors: any) => StyleSheet.create({
         color: Colors.textLight,
         fontWeight: "500" as const,
         minWidth: 60,
+    },
+    topBar: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        backgroundColor: Colors.background,
+    },
+    topBarTitle: {
+        fontSize: 18,
+        fontWeight: "700" as const,
+        color: Colors.text,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0, 0, 0, 0.7)",
+        justifyContent: "flex-end",
+    },
+    calendarModalRoot: {
+        backgroundColor: Colors.card,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 20,
+        maxHeight: "80%",
     },
 });

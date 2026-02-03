@@ -1,11 +1,10 @@
 import { Stack } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Store, Phone, MapPin, CheckCircle, DollarSign, Search, Filter } from "lucide-react-native";
-import React, { useState, useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, Alert, Pressable, TextInput, Dimensions } from "react-native";
+import React, { useState, useMemo, useCallback } from "react";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, Alert, Pressable, TextInput, RefreshControl, TouchableWithoutFeedback } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
-import ConfettiCannon from "react-native-confetti-cannon";
 import { useApp } from "@/contexts/AppContext";
 
 import type { Shop, Delivery } from "@/types";
@@ -13,7 +12,7 @@ import type { Shop, Delivery } from "@/types";
 type PaymentFilter = 'all' | 'unpaid' | 'partial' | 'paid';
 
 export default function ShopsScreen() {
-    const { getActiveShops, getUnpaidDeliveriesByShop, recordPayment, settings, shops: allShops, colors: Colors } = useApp();
+    const { getActiveShops, getUnpaidDeliveriesByShop, recordPayment, settings, shops: allShops, inventory, colors: Colors } = useApp();
     const styles = useMemo(() => createStyles(Colors), [Colors]);
     const shops = getActiveShops();
     const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
@@ -22,8 +21,13 @@ export default function ShopsScreen() {
     const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
     const [paymentAmount, setPaymentAmount] = useState("");
     const [payingDeliveryId, setPayingDeliveryId] = useState<string | null>(null);
-    const [showConfetti, setShowConfetti] = useState(false);
-    const confettiRef = React.useRef<any>(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setTimeout(() => setRefreshing(false), 800);
+    }, []);
 
     const filteredShops = React.useMemo(() => {
         // First filter by search
@@ -138,26 +142,29 @@ export default function ShopsScreen() {
         await recordPayment(deliveryId, amount);
         setPaymentAmount("");
         setPayingDeliveryId(null);
-        setShowConfetti(true);
+
+        const newTotalPaid = alreadyPaid + amount;
+        const isNowPaid = newTotalPaid >= total;
 
         Toast.show({
             type: "success",
-            text1: "Payment Received! 💰",
-            text2: `Recorded KES ${amount.toLocaleString()} for ${selectedShop?.name}`,
-            visibilityTime: 3000,
+            text1: isNowPaid ? "Fully Paid! 🏆" : "Partial Payment Received! 💰",
+            text2: isNowPaid
+                ? `Total KES ${total.toLocaleString()} cleared for ${selectedShop?.name}`
+                : `Received KES ${amount.toLocaleString()}. Bal: KES ${(total - newTotalPaid).toLocaleString()}`,
+            visibilityTime: 3500,
         });
     };
 
     const handleFullPayment = async (deliveryId: string, amount: number) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await recordPayment(deliveryId, amount);
-        setShowConfetti(true);
 
         Toast.show({
             type: "success",
-            text1: "Full Payment Clear! 🎉",
-            text2: `Account settled for ${selectedShop?.name}`,
-            visibilityTime: 3000,
+            text1: "Fully Paid! 🏆",
+            text2: `Total KES ${amount.toLocaleString()} cleared for ${selectedShop?.name}`,
+            visibilityTime: 3500,
         });
     };
 
@@ -222,6 +229,15 @@ export default function ShopsScreen() {
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={Colors.primary}
+                        colors={[Colors.primary]}
+                        progressBackgroundColor={Colors.card}
+                    />
+                }
             >
                 <View style={styles.shopsContainer}>
                     {filteredShops.length > 0 ? (
@@ -332,98 +348,106 @@ export default function ShopsScreen() {
                 transparent={true}
                 onRequestClose={() => setShowPaymentModal(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Pending Payments</Text>
-                            <Text style={styles.modalSubtitle}>{selectedShop?.name}</Text>
-                        </View>
+                <TouchableWithoutFeedback onPress={() => setShowPaymentModal(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback onPress={() => { }}>
+                            <View style={styles.modalContent}>
+                                <View style={styles.modalHeader}>
+                                    <Text style={styles.modalTitle}>Pending Payments</Text>
+                                    <Text style={styles.modalSubtitle}>{selectedShop?.name}</Text>
+                                </View>
 
-                        <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
-                            {selectedShop &&
-                                getUnpaidDeliveriesByShop(selectedShop.id).map((delivery) => {
-                                    const remaining = delivery.totalAmount - (delivery.paidAmount || 0);
-                                    const isPaying = payingDeliveryId === delivery.id;
+                                <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
+                                    {selectedShop &&
+                                        getUnpaidDeliveriesByShop(selectedShop.id).map((delivery) => {
+                                            const remaining = delivery.totalAmount - (delivery.paidAmount || 0);
+                                            const isPaying = payingDeliveryId === delivery.id;
 
-                                    return (
-                                        <View key={delivery.id} style={styles.deliveryItemContainer}>
-                                            <View style={styles.deliveryItem}>
-                                                <View style={styles.deliveryInfo}>
-                                                    <Text style={styles.deliveryDate}>
-                                                        {new Date(delivery.deliveryDate).toLocaleDateString()}
-                                                    </Text>
-                                                    <Text style={styles.deliveryAmount}>
-                                                        KES {delivery.totalAmount.toLocaleString()}
-                                                    </Text>
-                                                    {delivery.paidAmount > 0 && (
-                                                        <Text style={styles.paidAmountText}>
-                                                            Paid: KES {delivery.paidAmount.toLocaleString()} (Bal: KES {remaining.toLocaleString()})
-                                                        </Text>
+                                            return (
+                                                <View key={delivery.id} style={styles.deliveryItemContainer}>
+                                                    <View style={styles.deliveryItem}>
+                                                        <View style={styles.deliveryInfo}>
+                                                            <Text style={styles.deliveryDate}>
+                                                                {new Date(delivery.deliveryDate).toLocaleDateString()}
+                                                            </Text>
+                                                            <Text style={styles.deliveryAmount}>
+                                                                KES {delivery.totalAmount.toLocaleString()}
+                                                            </Text>
+                                                            {delivery.paidAmount > 0 && (
+                                                                <Text style={styles.paidAmountText}>
+                                                                    Paid: KES {delivery.paidAmount.toLocaleString()} (Bal: KES {remaining.toLocaleString()})
+                                                                </Text>
+                                                            )}
+
+                                                            {/* Delivery Items Breakdown */}
+                                                            <View style={styles.deliveryItems}>
+                                                                {delivery.items.map((item, idx) => {
+                                                                    const invItem = inventory.find(i => i.id === item.inventoryItemId);
+                                                                    return (
+                                                                        <Text key={idx} style={styles.deliveryItemText}>
+                                                                            • {item.name || invItem?.name || "Unknown Item"} x{item.quantity}
+                                                                        </Text>
+                                                                    );
+                                                                })}
+                                                            </View>
+
+                                                            {delivery.notes && (
+                                                                <Text style={styles.deliveryNotes}>{delivery.notes}</Text>
+                                                            )}
+                                                        </View>
+                                                        <View style={styles.paymentActions}>
+                                                            <TouchableOpacity
+                                                                style={styles.fullPayButton}
+                                                                onPress={() => handleFullPayment(delivery.id, remaining)}
+                                                            >
+                                                                <CheckCircle size={14} color={Colors.card} />
+                                                                <Text style={styles.fullPayText}>Full</Text>
+                                                            </TouchableOpacity>
+                                                            <TouchableOpacity
+                                                                style={styles.partialPayButton}
+                                                                onPress={() => setPayingDeliveryId(isPaying ? null : delivery.id)}
+                                                            >
+                                                                <DollarSign size={14} color={Colors.primary} />
+                                                                <Text style={styles.partialPayText}>Partial</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+
+                                                    {isPaying && (
+                                                        <View style={styles.partialInputContainer}>
+                                                            <TextInput
+                                                                style={styles.partialInput}
+                                                                placeholder="Amount..."
+                                                                keyboardType="numeric"
+                                                                value={paymentAmount}
+                                                                onChangeText={setPaymentAmount}
+                                                                autoFocus
+                                                            />
+                                                            <TouchableOpacity
+                                                                style={styles.confirmPayButton}
+                                                                onPress={() => handleMarkAsPaid(delivery.id, delivery.totalAmount, delivery.paidAmount || 0)}
+                                                            >
+                                                                <Text style={styles.confirmPayText}>Pay</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
                                                     )}
-                                                    {delivery.notes && (
-                                                        <Text style={styles.deliveryNotes}>{delivery.notes}</Text>
-                                                    )}
                                                 </View>
-                                                <View style={styles.paymentActions}>
-                                                    <TouchableOpacity
-                                                        style={styles.fullPayButton}
-                                                        onPress={() => handleFullPayment(delivery.id, remaining)}
-                                                    >
-                                                        <CheckCircle size={14} color={Colors.card} />
-                                                        <Text style={styles.fullPayText}>Full</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity
-                                                        style={styles.partialPayButton}
-                                                        onPress={() => setPayingDeliveryId(isPaying ? null : delivery.id)}
-                                                    >
-                                                        <DollarSign size={14} color={Colors.primary} />
-                                                        <Text style={styles.partialPayText}>Partial</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                            {isPaying && (
-                                                <View style={styles.partialInputContainer}>
-                                                    <TextInput
-                                                        style={styles.partialInput}
-                                                        placeholder="Amount..."
-                                                        keyboardType="numeric"
-                                                        value={paymentAmount}
-                                                        onChangeText={setPaymentAmount}
-                                                        autoFocus
-                                                    />
-                                                    <TouchableOpacity
-                                                        style={styles.confirmPayButton}
-                                                        onPress={() => handleMarkAsPaid(delivery.id, delivery.totalAmount, delivery.paidAmount || 0)}
-                                                    >
-                                                        <Text style={styles.confirmPayText}>Pay</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            )}
-                                        </View>
-                                    );
-                                })}
-                        </ScrollView>
+                                            );
+                                        })}
+                                </ScrollView>
 
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setShowPaymentModal(false)}
-                        >
-                            <Text style={styles.closeButtonText}>Close</Text>
-                        </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.closeButton}
+                                    onPress={() => setShowPaymentModal(false)}
+                                >
+                                    <Text style={styles.closeButtonText}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableWithoutFeedback>
                     </View>
-                </View>
-            </Modal>
-
-            {showConfetti && (
-                <ConfettiCannon
-                    count={200}
-                    origin={{ x: Dimensions.get("window").width / 2, y: 0 }}
-                    fadeOut={true}
-                    fallSpeed={3000}
-                    onAnimationEnd={() => setShowConfetti(false)}
-                />
-            )}
-        </SafeAreaView>
+                </TouchableWithoutFeedback>
+            </Modal >
+        </SafeAreaView >
     );
 }
 
@@ -593,15 +617,18 @@ const createStyles = (Colors: any) => StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backgroundColor: "rgba(0, 0, 0, 0.7)",
         justifyContent: "flex-end",
     },
     modalContent: {
         backgroundColor: Colors.card,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        padding: 20,
+        paddingTop: 24,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
         maxHeight: "80%",
+        overflow: "hidden",
     },
     modalHeader: {
         marginBottom: 20,
@@ -839,5 +866,15 @@ const createStyles = (Colors: any) => StyleSheet.create({
     },
     filterChipTextActive: {
         color: Colors.card,
+    },
+    deliveryItems: {
+        marginTop: 6,
+        paddingLeft: 4,
+        gap: 2,
+    },
+    deliveryItemText: {
+        fontSize: 12,
+        color: Colors.textLight,
+        fontWeight: "500" as const,
     },
 });

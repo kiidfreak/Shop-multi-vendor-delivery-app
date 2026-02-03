@@ -20,6 +20,7 @@ export interface DeliveryItem {
     inventoryItemId: string;
     quantity: number;
     price: number;
+    name?: string; // Snapshot of the name at time of sale, or custom name
 }
 
 export interface Delivery {
@@ -49,6 +50,7 @@ export interface AppSettings {
     businessName: string;
     profileImage?: string;
     darkMode: boolean;
+    enableDailyStock: boolean; // Enable daily stock management for profit tracking
 }
 
 export interface DailySummary {
@@ -66,4 +68,18 @@ export interface SellerAnalytics {
     totalPending: number;
     customerCount: number;
     deliveryCount: number;
+}
+
+// Daily stock record for tracking opening inventory each day
+export interface DailyStockRecord {
+    id: string;
+    date: string; // ISO date string YYYY-MM-DD
+    items: DailyStockItem[];
+    createdAt: string;
+}
+
+export interface DailyStockItem {
+    inventoryItemId: string;
+    openingStock: number;
+    closingStock?: number; // Optional, calculated at end of day
 }

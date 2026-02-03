@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import createContextHook from "@nkzw/create-context-hook";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import type { Delivery, DailySummary, InventoryItem, Shop, Seller, AppSettings, SellerAnalytics } from "@/types";
+import type { Delivery, DailySummary, InventoryItem, Shop, Seller, AppSettings, SellerAnalytics, DailyStockRecord } from "@/types";
 import { LightColors, DarkColors } from "@/constants/colors";
 
 const STORAGE_KEYS = {
@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
     DELIVERIES: "deliveries",
     SELLERS: "sellers",
     SETTINGS: "settings",
+    DAILY_STOCK: "daily_stock",
 };
 
 const DEFAULT_INVENTORY: InventoryItem[] = [
@@ -37,6 +38,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     userName: "Name",
     businessName: "Business Name",
     darkMode: false,
+    enableDailyStock: false, // Off by default, can enable in settings
 };
 
 export const [AppProvider, useApp] = createContextHook(() => {
@@ -44,6 +46,7 @@ export const [AppProvider, useApp] = createContextHook(() => {
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [sellers, setSellers] = useState<Seller[]>([]);
+    const [dailyStockRecords, setDailyStockRecords] = useState<DailyStockRecord[]>([]);
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -53,18 +56,20 @@ export const [AppProvider, useApp] = createContextHook(() => {
 
     const loadData = async () => {
         try {
-            const [shopsData, inventoryData, deliveriesData, sellersData, settingsData] = await Promise.all([
+            const [shopsData, inventoryData, deliveriesData, sellersData, settingsData, dailyStockData] = await Promise.all([
                 AsyncStorage.getItem(STORAGE_KEYS.SHOPS),
                 AsyncStorage.getItem(STORAGE_KEYS.INVENTORY),
                 AsyncStorage.getItem(STORAGE_KEYS.DELIVERIES),
                 AsyncStorage.getItem(STORAGE_KEYS.SELLERS),
                 AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
+                AsyncStorage.getItem(STORAGE_KEYS.DAILY_STOCK),
             ]);
 
             setShops(shopsData ? JSON.parse(shopsData) : DEFAULT_SHOPS);
             setInventory(inventoryData ? JSON.parse(inventoryData) : DEFAULT_INVENTORY);
             setDeliveries(deliveriesData ? JSON.parse(deliveriesData) : []);
             setSellers(sellersData ? JSON.parse(sellersData) : DEFAULT_SELLERS);
+            setDailyStockRecords(dailyStockData ? JSON.parse(dailyStockData) : []);
             setSettings(settingsData ? JSON.parse(settingsData) : DEFAULT_SETTINGS);
             setIsLoaded(true);
         } catch (error) {
@@ -145,20 +150,40 @@ export const [AppProvider, useApp] = createContextHook(() => {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
+        const formatDate = (date: Date) => date.toISOString().split("T")[0];
+        const todayStr = formatDate(now);
+
+        // Deliveries made today
         const todayDeliveries = deliveries.filter((d) => {
             const deliveryDate = new Date(d.deliveryDate);
             return deliveryDate >= startOfDay && deliveryDate < endOfDay;
         });
 
+        // Payments received today (can be for any delivery date)
+        const todayPayments = deliveries.reduce((sum, d) => {
+            if (d.paymentDate) {
+                const payDate = new Date(d.paymentDate);
+                if (payDate >= startOfDay && payDate < endOfDay) {
+                    // This is tricky because we only have the last paymentDate and total paidAmount.
+                    // For a truly accurate "collected today", we'd need a transaction history.
+                    // However, if paymentDate is today, we can at least count the paidAmount 
+                    // if it was updated today.
+                    // Improving: Use the current paidAmount if paymentDate is today.
+                    return sum + (d.paidAmount || 0);
+                }
+            }
+            return sum;
+        }, 0);
+
         const totalSales = todayDeliveries.reduce((sum, d) => sum + d.totalAmount, 0);
-        const totalPaid = todayDeliveries.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
-        const totalUnpaid = totalSales - totalPaid;
+        // Pending = total amount of today's deliveries minus whatever has been paid for THEM specifically
+        const totalUnpaidForToday = todayDeliveries.reduce((sum, d) => sum + (d.totalAmount - (d.paidAmount || 0)), 0);
 
         return {
-            date: now.toISOString().split("T")[0],
+            date: todayStr,
             totalSales,
-            totalPaid,
-            totalUnpaid,
+            totalPaid: todayPayments, // This shows collections made today
+            totalUnpaid: totalUnpaidForToday,
             deliveryCount: todayDeliveries.length,
         };
     }, [deliveries]);
@@ -196,6 +221,22 @@ export const [AppProvider, useApp] = createContextHook(() => {
         }
     }, []);
 
+    const saveDailyStockRecord = useCallback(async (record: DailyStockRecord) => {
+        try {
+            const updatedRecords = dailyStockRecords.filter(r => r.date !== record.date);
+            updatedRecords.push(record);
+            setDailyStockRecords(updatedRecords);
+            await AsyncStorage.setItem(STORAGE_KEYS.DAILY_STOCK, JSON.stringify(updatedRecords));
+        } catch (error) {
+            console.error("Error saving daily stock record:", error);
+        }
+    }, [dailyStockRecords]);
+
+    const getTodayStockRecord = useCallback(() => {
+        const todayStr = new Date().toISOString().split("T")[0];
+        return dailyStockRecords.find(r => r.date === todayStr);
+    }, [dailyStockRecords]);
+
     const getSellerAnalytics = useCallback((): SellerAnalytics[] => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -228,6 +269,51 @@ export const [AppProvider, useApp] = createContextHook(() => {
         });
     }, [deliveries, sellers]);
 
+    const getDailyInventorySnapshot = useCallback(() => {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+        const todayDeliveries = deliveries.filter((d: Delivery) => {
+            const deliveryDate = new Date(d.deliveryDate);
+            return deliveryDate >= startOfDay && deliveryDate < endOfDay;
+        });
+
+        // Calculate items delivered today
+        const itemsDelivered: { [key: string]: { name: string; quantity: number; revenue: number } } = {};
+
+        todayDeliveries.forEach((delivery) => {
+            delivery.items.forEach((item) => {
+                const inventoryItem = inventory.find((i) => i.id === item.inventoryItemId);
+                const itemName = item.name || inventoryItem?.name;
+
+                if (itemName) {
+                    if (!itemsDelivered[item.inventoryItemId]) {
+                        itemsDelivered[item.inventoryItemId] = {
+                            name: itemName,
+                            quantity: 0,
+                            revenue: 0,
+                        };
+                    }
+                    itemsDelivered[item.inventoryItemId].quantity += item.quantity;
+                    itemsDelivered[item.inventoryItemId].revenue += item.quantity * item.price;
+                }
+            });
+        });
+
+        // Calculate total revenue and "profit" (for now, just showing revenue as we don't track item costs)
+        const totalRevenue = Object.values(itemsDelivered).reduce((sum, item) => sum + item.revenue, 0);
+        const totalItemsSold = Object.values(itemsDelivered).reduce((sum, item) => sum + item.quantity, 0);
+
+        return {
+            itemsDelivered: Object.values(itemsDelivered).sort((a, b) => b.revenue - a.revenue),
+            totalRevenue,
+            totalItemsSold,
+            // Simplified profit estimate (future: track actual item costs)
+            estimatedProfit: totalRevenue, // For now, showing revenue as proxy for profit
+        };
+    }, [deliveries, inventory]);
+
     const getActiveShops = useCallback((): Shop[] => {
         if (settings.hideShopsAfterPaid) {
             return shops.filter((shop) => {
@@ -256,13 +342,18 @@ export const [AppProvider, useApp] = createContextHook(() => {
         saveShops,
         saveSellers,
         saveSettings,
+        saveDailyStockRecord,
+        getTodayStockRecord,
+        dailyStockRecords,
         getSellerAnalytics,
+        getDailyInventorySnapshot,
         getActiveShops,
     }), [
         shops,
         inventory,
         deliveries,
         sellers,
+        dailyStockRecords,
         settings,
         isLoaded,
         colors,
@@ -274,7 +365,10 @@ export const [AppProvider, useApp] = createContextHook(() => {
         saveShops,
         saveSellers,
         saveSettings,
+        saveDailyStockRecord,
+        getTodayStockRecord,
         getSellerAnalytics,
+        getDailyInventorySnapshot,
         getActiveShops,
     ]);
 });

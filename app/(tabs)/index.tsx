@@ -1,24 +1,49 @@
 import { Link, Stack, router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Users, BarChart3, TrendingUp, DollarSign, AlertCircle, Package, Plus, User, Settings, Store, ChevronDown, Sun, Moon } from "lucide-react-native";
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View, ActivityIndicator, Pressable, useWindowDimensions, Modal, TouchableWithoutFeedback, Image } from "react-native";
+import React, { useState, useCallback, useEffect } from "react";
+import { useNavigation } from "@react-navigation/native";
+import { ScrollView, StyleSheet, Text, View, ActivityIndicator, Pressable, useWindowDimensions, Modal, TouchableWithoutFeedback, Image, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
 
 import type { SellerAnalytics } from "@/types";
 
 export default function DashboardScreen() {
-    const { getTodaySummary, getSellerAnalytics, inventory, deliveries, isLoaded, settings, colors: Colors } = useApp();
+    const { getTodaySummary, getSellerAnalytics, getDailyInventorySnapshot, inventory, deliveries, isLoaded, settings, colors: Colors } = useApp();
     const styles = React.useMemo(() => createStyles(Colors), [Colors]);
     const { width: windowWidth } = useWindowDimensions();
     const [activeSlide, setActiveSlide] = React.useState(0);
     const [showMenu, setShowMenu] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const carouselRef = React.useRef<ScrollView>(null);
+    const navigation = useNavigation();
+
+    // Scroll to first slide when dashboard tab is pressed while already on dashboard
+    useEffect(() => {
+        const unsubscribe = navigation.getParent()?.addListener("tabPress", (e: any) => {
+            const isFocused = navigation.isFocused();
+            if (isFocused) {
+                carouselRef.current?.scrollTo({ x: 0, animated: true });
+                setActiveSlide(0);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }
+        });
+        return unsubscribe;
+    }, [navigation]);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Simulate refresh - data updates automatically from context
+        setTimeout(() => setRefreshing(false), 800);
+    }, []);
 
     const currentHour = new Date().getHours();
     const isNight = currentHour >= 18 || currentHour < 6;
     const summary = getTodaySummary();
     const sellers = getSellerAnalytics();
+    const inventorySnapshot = getDailyInventorySnapshot();
 
     const lowStockItems = inventory.filter(
         (item) => item.currentStock <= item.lowStockThreshold
@@ -26,6 +51,17 @@ export default function DashboardScreen() {
 
     const unpaidDeliveries = deliveries.filter((d) => !d.isPaid);
     const totalUnpaid = unpaidDeliveries.reduce((sum, d) => sum + (d.totalAmount - (d.paidAmount || 0)), 0);
+
+    // Handle carousel tap to navigate
+    const handleSlidePress = () => {
+        const nextSlide = (activeSlide + 1) % 3; // Now we have 3 slides
+        setActiveSlide(nextSlide);
+        carouselRef.current?.scrollTo({
+            x: nextSlide * (windowWidth - 30),
+            animated: true,
+        });
+        Haptics.selectionAsync();
+    };
 
     if (!isLoaded) {
         return (
@@ -138,9 +174,19 @@ export default function DashboardScreen() {
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={Colors.primary}
+                        colors={[Colors.primary]}
+                        progressBackgroundColor={Colors.card}
+                    />
+                }
             >
                 <View style={styles.statsContainer}>
                     <ScrollView
+                        ref={carouselRef}
                         horizontal
                         snapToInterval={windowWidth - 30}
                         decelerationRate="fast"
@@ -157,7 +203,7 @@ export default function DashboardScreen() {
                         scrollEventThrottle={16}
                     >
                         {/* Slide 1: Today's Overview */}
-                        <View style={[styles.slide, { width: windowWidth - 30 }]}>
+                        <Pressable onPress={handleSlidePress} style={[styles.slide, { width: windowWidth - 30 }]}>
                             <View style={[styles.statCard, styles.primaryCard]}>
                                 <View style={styles.statIconContainer}>
                                     <TrendingUp size={24} color={Colors.card} />
@@ -175,10 +221,10 @@ export default function DashboardScreen() {
                                     </View>
                                 </View>
                             </View>
-                        </View>
+                        </Pressable>
 
                         {/* Slide 2: Seller Stats */}
-                        <View style={[styles.slide, { width: windowWidth - 40 }]}>
+                        <Pressable onPress={handleSlidePress} style={[styles.slide, { width: windowWidth - 30 }]}>
                             <View style={[styles.statCard, styles.sellersCard]}>
                                 <View style={styles.statHeader}>
                                     <View style={styles.statIconContainer}>
@@ -198,12 +244,44 @@ export default function DashboardScreen() {
                                     ))}
                                 </ScrollView>
                             </View>
-                        </View>
+                        </Pressable>
+
+                        {/* Slide 3: Daily Inventory & Profit */}
+                        <Pressable onPress={handleSlidePress} style={[styles.slide, { width: windowWidth - 30 }]}>
+                            <View style={[styles.statCard, styles.inventoryCard]}>
+                                <View style={styles.statHeader}>
+                                    <View style={styles.statIconContainer}>
+                                        <Package size={24} color={Colors.card} />
+                                    </View>
+                                    <Text style={styles.statLabel}>Today's Inventory</Text>
+                                </View>
+                                <View style={styles.inventoryContent}>
+                                    <View style={styles.profitRow}>
+                                        <Text style={styles.profitLabel}>Revenue</Text>
+                                        <Text style={styles.profitValue}>KES {inventorySnapshot.totalRevenue.toLocaleString()}</Text>
+                                    </View>
+                                    <View style={styles.profitRow}>
+                                        <Text style={styles.profitLabel}>Items Sold</Text>
+                                        <Text style={styles.profitValue}>{inventorySnapshot.totalItemsSold}</Text>
+                                    </View>
+                                    {inventorySnapshot.itemsDelivered.map((item, idx) => (
+                                        <View key={idx} style={styles.inventoryItemRow}>
+                                            <Text style={styles.inventoryItemName}>{item.name}</Text>
+                                            <Text style={styles.inventoryItemQty}>{item.quantity} units • KES {item.revenue.toLocaleString()}</Text>
+                                        </View>
+                                    ))}
+                                    {inventorySnapshot.itemsDelivered.length === 0 && (
+                                        <Text style={styles.emptyInventoryText}>No sales yet today</Text>
+                                    )}
+                                </View>
+                            </View>
+                        </Pressable>
                     </ScrollView>
 
                     <View style={styles.dotContainer}>
                         <View style={[styles.dot, activeSlide === 0 && styles.activeDot]} />
                         <View style={[styles.dot, activeSlide === 1 && styles.activeDot]} />
+                        <View style={[styles.dot, activeSlide === 2 && styles.activeDot]} />
                     </View>
                 </View>
 
@@ -355,16 +433,13 @@ const createStyles = (Colors: any) => StyleSheet.create({
         marginBottom: 12,
     },
     statLabel: {
-        fontSize: 14,
-        color: Colors.secondary,
-        marginBottom: 8,
-        fontWeight: "500" as const,
-    },
-    statValue: {
-        fontSize: 32,
-        fontWeight: "700" as const,
+        fontSize: 18,
+        fontWeight: "900" as const,
         color: Colors.card,
-        marginBottom: 4,
+        opacity: 1,
+        marginBottom: 8,
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
     },
     statSubtext: {
         fontSize: 12,
@@ -570,6 +645,22 @@ const createStyles = (Colors: any) => StyleSheet.create({
         fontSize: 14,
         fontWeight: "700" as const,
     },
+    miniStatPaid: {
+        backgroundColor: "rgba(76, 175, 80, 0.3)",
+        borderWidth: 1,
+        borderColor: "rgba(76, 175, 80, 0.5)",
+    },
+    miniStatPending: {
+        backgroundColor: "rgba(255, 152, 0, 0.3)",
+        borderWidth: 1,
+        borderColor: "rgba(255, 152, 0, 0.5)",
+    },
+    miniStatValuePaid: {
+        color: "#E8F5E9",
+    },
+    miniStatValuePending: {
+        color: "#FFF3E0",
+    },
     dotContainer: {
         flexDirection: "row",
         justifyContent: "center",
@@ -649,5 +740,57 @@ const createStyles = (Colors: any) => StyleSheet.create({
         backgroundColor: Colors.border,
         marginVertical: 4,
         marginHorizontal: 12,
+    },
+    inventoryCard: {
+        backgroundColor: Colors.card,
+        borderRadius: 20,
+        padding: 20,
+        minHeight: 180,
+    },
+    inventoryContent: {
+        marginTop: 12,
+        gap: 8,
+    },
+    profitRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.border,
+    },
+    profitLabel: {
+        fontSize: 14,
+        fontWeight: "600" as const,
+        color: Colors.mutedText,
+    },
+    profitValue: {
+        fontSize: 16,
+        fontWeight: "700" as const,
+        color: Colors.text,
+    },
+    inventoryItemRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 6,
+    },
+    inventoryItemName: {
+        fontSize: 13,
+        fontWeight: "600" as const,
+        color: Colors.text,
+        flex: 1,
+    },
+    inventoryItemQty: {
+        fontSize: 12,
+        fontWeight: "500" as const,
+        color: Colors.mutedText,
+    },
+    emptyInventoryText: {
+        fontSize: 13,
+        color: Colors.mutedText,
+        textAlign: "center" as const,
+        marginTop: 16,
+        fontStyle: "italic" as const,
     },
 });

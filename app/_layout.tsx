@@ -9,6 +9,7 @@ import { AppProvider, useApp } from "@/contexts/AppContext";
 import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
 import { View, StyleSheet, Image, Animated, Text, Dimensions } from "react-native";
+import PinLockScreen from "@/components/PinLockScreen";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -97,7 +98,20 @@ function CustomSplashScreen({ onFinish }: { onFinish: () => void }) {
 }
 
 function RootLayoutNav() {
-    const { settings } = useApp();
+    const { settings, isLoaded } = useApp();
+    const [isUnlocked, setIsUnlocked] = useState(false);
+
+    // Effect to handle initial unlock state
+    React.useEffect(() => {
+        if (isLoaded) {
+            if (!settings.appPin) {
+                setIsUnlocked(true);
+            }
+        }
+    }, [isLoaded, settings.appPin]);
+
+    const showPinLock = isLoaded && !!settings.appPin && !isUnlocked;
+
     return (
         <View style={styles.root}>
             <StatusBar style={settings.darkMode ? "light" : "dark"} />
@@ -113,6 +127,12 @@ function RootLayoutNav() {
                     }}
                 />
             </Stack>
+            {showPinLock && (
+                <PinLockScreen
+                    storedPin={settings.appPin!}
+                    onSuccess={() => setIsUnlocked(true)}
+                />
+            )}
             <Toast />
         </View>
     );

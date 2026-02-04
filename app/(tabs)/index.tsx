@@ -253,9 +253,13 @@ export default function DashboardScreen() {
                                     <View style={styles.statIconContainer}>
                                         <Package size={24} color={Colors.card} />
                                     </View>
-                                    <Text style={styles.statLabel}>Today's Inventory</Text>
+                                    <Text style={styles.statLabel}>Today's Profit</Text>
                                 </View>
                                 <View style={styles.inventoryContent}>
+                                    <View style={styles.profitRow}>
+                                        <Text style={styles.profitLabel}>Profit</Text>
+                                        <Text style={styles.profitValue}>KES {inventorySnapshot.estimatedProfit.toLocaleString()}</Text>
+                                    </View>
                                     <View style={styles.profitRow}>
                                         <Text style={styles.profitLabel}>Revenue</Text>
                                         <Text style={styles.profitValue}>KES {inventorySnapshot.totalRevenue.toLocaleString()}</Text>
@@ -394,7 +398,7 @@ const createStyles = (Colors: any) => StyleSheet.create({
         gap: 12,
     },
     statCard: {
-        backgroundColor: Colors.card,
+        backgroundColor: '#FF8F2980',
         borderRadius: 16,
         padding: 20,
         shadowColor: Colors.shadow,

@@ -51,6 +51,7 @@ export interface AppSettings {
     profileImage?: string;
     darkMode: boolean;
     enableDailyStock: boolean; // Enable daily stock management for profit tracking
+    appPin?: string; // Optional PIN to secure the app
 }
 
 export interface DailySummary {

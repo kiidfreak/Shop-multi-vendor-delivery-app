@@ -1,8 +1,8 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3, Moon, Package } from "lucide-react-native";
+import { User, Store, Plus, Edit2, Trash2, DollarSign, Settings as SettingsIcon, BarChart3, Moon, Package, Lock, ShieldCheck, Delete, X } from "lucide-react-native";
 import React, { useState, useEffect, useCallback } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable, Switch, Image, KeyboardAvoidingView, Platform, RefreshControl, TouchableWithoutFeedback } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Alert, Pressable, Switch, Image, KeyboardAvoidingView, Platform, RefreshControl, TouchableWithoutFeedback, Vibration } from "react-native";
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/AppContext";
@@ -41,11 +41,99 @@ export default function ProfileScreen() {
     const [tempBusinessName, setTempBusinessName] = useState(settings.businessName);
     const [refreshing, setRefreshing] = useState(false);
 
+    // PIN State
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pinFlow, setPinFlow] = useState<"setup" | "change" | "disable">("setup");
+    const [pinStep, setPinStep] = useState<"verify" | "create" | "confirm">("create");
+    const [pinInput, setPinInput] = useState("");
+    const [firstPin, setFirstPin] = useState("");
+    const [pinError, setPinError] = useState(false);
+
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setTimeout(() => setRefreshing(false), 800);
     }, []);
+
+    // PIN Logic
+    const startPinFlow = (type: "setup" | "change" | "disable") => {
+        setPinFlow(type);
+        setPinInput("");
+        setFirstPin("");
+        setPinError(false);
+
+        if (type === "setup") setPinStep("create");
+        else if (type === "change" || type === "disable") setPinStep("verify");
+
+        setShowPinModal(true);
+    };
+
+    const handlePinPress = (digit: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (pinInput.length < 4) {
+            setPinInput(prev => prev + digit);
+            setPinError(false);
+        }
+    };
+
+    const handlePinBackspace = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setPinInput(prev => prev.slice(0, -1));
+        setPinError(false);
+    };
+
+    useEffect(() => {
+        if (pinInput.length === 4) {
+            processPinStep();
+        }
+    }, [pinInput]);
+
+    const processPinStep = async () => {
+        // Give a small delay for the 4th dot to fill visibly
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (pinStep === "verify") {
+            if (pinInput === settings.appPin) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                if (pinFlow === "disable") {
+                    await saveSettings({ ...settings, appPin: undefined });
+                    setShowPinModal(false);
+                    Toast.show({ type: "success", text1: "App Lock Disabled", text2: "PIN protection has been removed." });
+                } else if (pinFlow === "change") {
+                    setPinStep("create");
+                    setPinInput("");
+                }
+            } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                Vibration.vibrate();
+                setPinError(true);
+                setPinInput("");
+                Toast.show({ type: "error", text1: "Incorrect PIN", text2: "Please try again." });
+            }
+        } else if (pinStep === "create") {
+            setFirstPin(pinInput);
+            setPinStep("confirm");
+            setPinInput("");
+        } else if (pinStep === "confirm") {
+            if (pinInput === firstPin) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                await saveSettings({ ...settings, appPin: pinInput });
+                setShowPinModal(false);
+                Toast.show({
+                    type: "success",
+                    text1: pinFlow === "change" ? "PIN Changed" : "App Lock Enabled",
+                    text2: "Your app is now secured."
+                });
+            } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                Vibration.vibrate();
+                setPinError(true);
+                setPinInput("");
+                setPinStep("create"); // Restart creation
+                Toast.show({ type: "error", text1: "PINs did not match", text2: "Please try again." });
+            }
+        }
+    };
 
     const openShopModal = (shop?: Shop) => {
         if (shop) {
@@ -506,8 +594,126 @@ export default function ProfileScreen() {
                             thumbColor={Colors.card}
                         />
                     </View>
+
+                    <View style={styles.settingDivider} />
+
+                    <View style={styles.settingItem}>
+                        <ShieldCheck size={20} color={Colors.primary} />
+                        <View style={styles.settingContent}>
+                            <Text style={styles.settingTitle}>App Lock</Text>
+                            <Text style={styles.settingSubtitle}>Secure app with a PIN</Text>
+                        </View>
+                        <Switch
+                            value={!!settings.appPin}
+                            onValueChange={(value) => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                if (value) startPinFlow("setup");
+                                else startPinFlow("disable");
+                            }}
+                            trackColor={{ false: Colors.border, true: Colors.primary }}
+                            thumbColor={Colors.card}
+                        />
+                    </View>
+
+                    {!!settings.appPin && (
+                        <TouchableOpacity
+                            style={styles.changePinButton}
+                            onPress={() => startPinFlow("change")}
+                        >
+                            <Text style={styles.changePinText}>Change PIN</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </ScrollView>
+
+            {/* PIN MODAL */}
+            <Modal visible={showPinModal} animationType="slide" transparent={false} onRequestClose={() => setShowPinModal(false)}>
+                <SafeAreaView style={styles.pinContainer}>
+                    <TouchableOpacity style={styles.closePinButton} onPress={() => setShowPinModal(false)}>
+                        <X size={24} color={Colors.text} />
+                    </TouchableOpacity>
+
+                    <View style={styles.pinHeader}>
+                        <View style={styles.pinIconContainer}>
+                            <Lock size={32} color={Colors.primary} />
+                        </View>
+                        <Text style={styles.pinTitle}>
+                            {pinStep === "verify" ? "Enter PIN" :
+                                pinStep === "create" ? (pinFlow === "change" ? "Enter New PIN" : "Create PIN") :
+                                    "Confirm PIN"}
+                        </Text>
+                        <Text style={styles.pinSubtitle}>
+                            {pinStep === "verify" ? "Enter your current PIN to continue" :
+                                pinStep === "create" ? "Enter a 4-digit PIN to secure your app" :
+                                    "Re-enter your PIN to confirm"}
+                        </Text>
+                    </View>
+
+                    <View style={styles.pinDotsContainer}>
+                        {[1, 2, 3, 4].map((i) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.pinDot,
+                                    pinInput.length >= i && styles.pinDotFilled,
+                                    pinError && styles.pinDotError
+                                ]}
+                            />
+                        ))}
+                    </View>
+
+                    <View style={styles.keypad}>
+                        <View style={styles.keypadRow}>
+                            {[1, 2, 3].map((num) => (
+                                <TouchableOpacity
+                                    key={num}
+                                    style={styles.keypadButton}
+                                    onPress={() => handlePinPress(num.toString())}
+                                >
+                                    <Text style={styles.keypadText}>{num}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <View style={styles.keypadRow}>
+                            {[4, 5, 6].map((num) => (
+                                <TouchableOpacity
+                                    key={num}
+                                    style={styles.keypadButton}
+                                    onPress={() => handlePinPress(num.toString())}
+                                >
+                                    <Text style={styles.keypadText}>{num}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <View style={styles.keypadRow}>
+                            {[7, 8, 9].map((num) => (
+                                <TouchableOpacity
+                                    key={num}
+                                    style={styles.keypadButton}
+                                    onPress={() => handlePinPress(num.toString())}
+                                >
+                                    <Text style={styles.keypadText}>{num}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <View style={styles.keypadRow}>
+                            <View style={styles.keypadButtonPlaceholder} />
+                            <TouchableOpacity
+                                style={styles.keypadButton}
+                                onPress={() => handlePinPress("0")}
+                            >
+                                <Text style={styles.keypadText}>0</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.keypadButton}
+                                onPress={handlePinBackspace}
+                            >
+                                <Delete size={24} color={Colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </SafeAreaView>
+            </Modal>
 
             <Modal visible={showShopModal} animationType="slide" transparent={true} onRequestClose={() => setShowShopModal(false)}>
                 <KeyboardAvoidingView
@@ -798,7 +1004,105 @@ const createStyles = (Colors: any) => StyleSheet.create({
     },
     listItemContent: {
         flex: 1,
-        marginLeft: 12,
+    },
+    changePinButton: {
+        marginLeft: 52, // Align with text content of setting item (icon width + gap)
+        marginTop: -10,
+        marginBottom: 16,
+    },
+    changePinText: {
+        color: Colors.primary,
+        fontWeight: "600",
+        fontSize: 14,
+    },
+    // PIN Modal Styles
+    pinContainer: {
+        flex: 1,
+        backgroundColor: Colors.background,
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 20,
+    },
+    closePinButton: {
+        alignSelf: "flex-end",
+        padding: 20,
+    },
+    pinHeader: {
+        alignItems: "center",
+        marginTop: 20,
+    },
+    pinIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: Colors.secondary,
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 20,
+    },
+    pinTitle: {
+        fontSize: 24,
+        fontWeight: "700",
+        color: Colors.text,
+        marginBottom: 8,
+    },
+    pinSubtitle: {
+        fontSize: 14,
+        color: Colors.textLight,
+        textAlign: "center",
+        maxWidth: 240,
+    },
+    pinDotsContainer: {
+        flexDirection: "row",
+        gap: 24,
+        marginBottom: 40,
+    },
+    pinDot: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.textLight,
+    },
+    pinDotFilled: {
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+    },
+    pinDotError: {
+        borderColor: Colors.error,
+        backgroundColor: Colors.error,
+    },
+    keypad: {
+        width: "100%",
+        paddingHorizontal: 40,
+        marginBottom: 40,
+        gap: 20,
+    },
+    keypadRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    keypadButton: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: Colors.card,
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: Colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    keypadButtonPlaceholder: {
+        width: 72,
+        height: 72,
+    },
+    keypadText: {
+        fontSize: 28,
+        fontWeight: "600",
+        color: Colors.text,
     },
     listItemTitle: {
         fontSize: 14,
